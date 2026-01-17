@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Highlighter Pro - Video Asset Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --anim-duration: 1.5s;
+        }
+
+        body { background-color: #0f172a; color: #f8fafc; overflow-x: hidden; }
+        
+        .canvas-wrapper {
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto;
+            position: relative;
+            background-color: #1e293b;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #475569;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            aspect-ratio: 9/16;
+        }
+
+        #main-canvas { 
+            width: 100%; 
+            height: 100%; 
+            background-size: 100% 100%;
+            background-position: center; 
+            background-repeat: no-repeat; 
+            position: relative; 
+        }
+
+        /* Elements */
+        .draggable { position: absolute; cursor: move; touch-action: none; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
+        .draggable.active { border-color: white; border-style: dashed; }
+        
+        #highlight-box {
+            background-color: rgba(239, 68, 68, 0.4);
+            border: 2px solid #ef4444;
+            transition: opacity 0.4s ease, transform 0.2s ease;
+        }
+        #highlight-box.active { border-color: white; border-style: dashed; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+
+        .arrow-instance { width: 60px; height: 60px; color: #ef4444; }
+
+        .resize-handle {
+            position: absolute; width: 16px; height: 16px; background: white; border: 2px solid #000;
+            border-radius: 50%; bottom: -8px; right: -8px; cursor: nwse-resize; z-index: 10;
+            display: none;
+        }
+        .active .resize-handle { display: block; }
+
+        /* Animation Classes */
+        .hidden-box { opacity: 0 !important; pointer-events: none; }
+        .anim-pulse { animation: pulse-kf var(--anim-duration) infinite ease-in-out; }
+        .anim-bounce { animation: bounce-kf var(--anim-duration) infinite; }
+        .anim-fade { animation: fade-kf var(--anim-duration) infinite alternate linear; }
+        .anim-shake { animation: shake-kf calc(var(--anim-duration) / 3) infinite; }
+        .anim-flash { animation: flash-kf calc(var(--anim-duration) / 2) infinite; }
+        .anim-spin { animation: spin-kf var(--anim-duration) infinite linear; }
+        .anim-zoom { animation: zoom-kf var(--anim-duration) infinite ease-in-out; }
+        .anim-float { animation: float-kf var(--anim-duration) infinite ease-in-out; }
+
+        @keyframes pulse-kf { 0%, 100% { transform: scale(1); opacity: 0.4; } 50% { transform: scale(1.1); opacity: 0.8; } }
+        @keyframes bounce-kf { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        @keyframes fade-kf { 0% { opacity: 0.1; } 100% { opacity: 0.9; } }
+        @keyframes shake-kf { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes flash-kf { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.1; } }
+        @keyframes spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes zoom-kf { 0%, 100% { transform: scale(0.9); } 50% { transform: scale(1.2); } }
+        @keyframes float-kf { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(5px, -10px); } 66% { transform: translate(-5px, -5px); } }
+
+        .taking-screenshot .resize-handle { display: none !important; }
+        .taking-screenshot .active { border-color: transparent !important; box-shadow: none !important; }
+        .is-recording #recording-status { display: flex; }
+
+        /* UI Overlays */
+        #size-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            color: #94a3b8;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 50;
+            pointer-events: none;
+            font-family: monospace;
+            display: none;
+        }
+
+        .val-badge { 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #ef4444;
+            font-weight: 700;
+            font-size: 10px;
+            text-align: right;
+        }
+
+        .control-group { @apply flex flex-col gap-1; }
+        .label-row { @apply flex justify-between items-center mb-0.5; }
+
+        input[type="range"] {
+            height: 4px;
+            background: #334155;
+            border-radius: 8px;
+            appearance: none;
+            width: 100%;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #ef4444;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #1e293b;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 lg:p-10">
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+        
+        <!-- Controls Panel -->
+        <div class="space-y-4 bg-slate-800/90 p-6 rounded-3xl border border-slate-700 h-fit shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-indigo-400 tracking-tight">Plan Highlighter Pro</h1>
+                <div id="recording-status" class="hidden items-center gap-2 bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold animate-pulse border border-red-500/30 uppercase tracking-widest">
+                    Recording
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5">
+                <!-- Section 1: Label Settings -->
+                <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
+                    <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-2">1. Label Settings</label>
+                    <div class="flex gap-3">
+                        <input type="text" id="labelInput" value="Zone 06" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-500/50 transition-all">
+                        <label class="flex items-center gap-2 text-xs cursor-pointer select-none bg-slate-800 px-4 rounded-lg border border-slate-700 min-w-[100px] justify-center hover:bg-slate-700 transition-colors">
+                            <input type="checkbox" id="showLabel" checked class="accent-red-500 w-4 h-4"> <span class="text-slate-400 font-bold">Visible</span>
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <div class="label-row">
+                            <span class="text-[11px] font-bold text-slate-400">Font Size</span>
+                            <span id="fontSizeVal" class="val-badge">14px</span>
+                        </div>
+                        <input type="range" id="fontSize" min="10" max="60" value="14">
+                    </div>
+                </div>
+
+                <!-- Section 2: Style, Size & Position -->
+                <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-5 shadow-inner">
+                    <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-2">2. Style, Size & Position</label>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-[11px] font-bold text-slate-400">Box Color</span>
+                                <input type="color" id="boxColor" value="#ef4444" class="h-10 w-20 bg-transparent cursor-pointer rounded-lg overflow-hidden border-2 border-slate-700">
+                            </div>
+                            <div class="control-group">
+                                <div class="label-row">
+                                    <span class="text-[11px] font-bold text-slate-400">Opacity</span>
+                                    <span id="boxOpacityVal" class="val-badge">0.4</span>
+                                </div>
+                                <input type="range" id="boxOpacity" min="0" max="1" step="0.05" value="0.4">
+                            </div>
+                            <div class="control-group">
+                                <div class="label-row">
+                                    <span class="text-[11px] font-bold text-slate-400">Thickness</span>
+                                    <span id="borderWidthVal" class="val-badge">2px</span>
+                                </div>
+                                <input type="range" id="borderWidth" min="0" max="30" value="2">
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="control-group">
+                                <div class="label-row">
+                                    <span class="text-[11px] font-bold text-slate-400 text-indigo-400">Width</span>
+                                    <span id="rectWidthVal" class="val-badge">100px</span>
+                                </div>
+                                <input type="range" id="rectWidth" min="10" max="500" value="100">
+                            </div>
+                            <div class="control-group">
+                                <div class="label-row">
+                                    <span class="text-[11px] font-bold text-slate-400 text-indigo-400">Height</span>
+                                    <span id="rectHeightVal" class="val-badge">100px</span>
+                                </div>
+                                <input type="range" id="rectHeight" min="10" max="800" value="100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4 pt-4 border-t border-slate-800">
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[11px] font-bold text-slate-400">Position X</span>
+                                <span id="posXVal" class="val-badge">0</span>
+                            </div>
+                            <input type="range" id="posX" min="0" max="500" value="0">
+                        </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[11px] font-bold text-slate-400">Position Y</span>
+                                <span id="posYVal" class="val-badge">0</span>
+                            </div>
+                            <input type="range" id="posY" min="0" max="800" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3 & 4 Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-1">3. Manager</label>
+                        <div class="flex gap-2">
+                            <button id="addArrow" class="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg text-[11px] font-black transition-all uppercase tracking-widest shadow-lg shadow-green-900/20">Add Arrow</button>
+                            <button id="deleteSelected" class="flex-1 bg-slate-700 hover:bg-red-700 py-3 rounded-lg text-[11px] font-black transition-all uppercase tracking-widest border border-slate-600">Delete</button>
+                        </div>
+                        <select id="arrowType" class="w-full bg-slate-800 border border-slate-700 rounded-lg text-[11px] py-3 px-3 outline-none cursor-pointer focus:ring-2 focus:ring-red-500/30">
+                            <option value="simple">Simple Arrow</option>
+                            <option value="diagonal">Diagonal Arrow</option>
+                            <option value="right">Horizontal Right</option>
+                            <option value="curved">Curved Arrow</option>
+                            <option value="double">Double Headed</option>
+                        </select>
+                    </div>
+
+                    <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-1">4. Animations</label>
+                        <div class="flex gap-2">
+                            <select id="animType" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-3 text-[11px] outline-none focus:ring-2 focus:ring-red-500/30 px-3 cursor-pointer">
+                                <option value="anim-pulse">Pulse</option>
+                                <option value="anim-bounce">Bounce</option>
+                                <option value="anim-fade">Fade</option>
+                                <option value="anim-shake">Shake</option>
+                                <option value="anim-flash">Flash</option>
+                                <option value="anim-spin">Spin</option>
+                                <option value="anim-zoom">Zoom</option>
+                                <option value="anim-float">Float</option>
+                            </select>
+                            <button id="btnPulse" class="bg-slate-700 hover:bg-red-600 px-4 py-3 rounded-lg text-[11px] font-black uppercase transition-all whitespace-nowrap tracking-widest">Loop</button>
+                        </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[11px] font-bold text-slate-400">Duration</span>
+                                <span id="animDurationVal" class="val-badge">1.5s</span>
+                            </div>
+                            <input type="range" id="animDuration" min="0.2" max="5.0" step="0.1" value="1.5">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Buttons -->
+            <div class="pt-6 border-t border-slate-700 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button id="btnStartRecord" class="bg-red-600 hover:bg-red-500 py-4 rounded-2xl text-sm font-black flex items-center justify-center gap-3 shadow-xl shadow-red-900/30 transition-all active:scale-95">
+                        <span class="w-3 h-3 bg-white rounded-full animate-pulse"></span> RECORD VIDEO
+                    </button>
+                    <button id="btnMagicRecord" class="bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl text-sm font-black border border-white/10 flex flex-col items-center leading-tight shadow-xl shadow-indigo-900/30 transition-all active:scale-95">
+                        <span>AUTO: 1 LOOP</span>
+                        <span class="text-[10px] opacity-70 font-bold uppercase mt-1 tracking-widest">Capture Frame</span>
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="btnToggle" class="bg-slate-700 hover:bg-slate-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors">Hide Box</button>
+                    <button id="btnPulseOnce" class="bg-slate-700 hover:bg-slate-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors">Play Once</button>
+                    <button id="btnReset" class="bg-slate-700 hover:bg-red-900/40 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors border border-slate-600">Reset</button>
+                    <button id="btnDownload" class="bg-emerald-700 hover:bg-emerald-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-[1.5] tracking-widest transition-colors shadow-lg shadow-emerald-900/20">Save PNG</button>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('imageInput').click()" class="w-full py-3.5 bg-slate-100 text-slate-900 rounded-2xl font-black text-sm hover:bg-white transition-all shadow-xl tracking-widest uppercase">Upload Plan Image</button>
+            <input type="file" id="imageInput" accept="image/*" class="hidden">
+        </div>
+
+        <!-- Preview Canvas -->
+        <div class="flex flex-col items-center sticky top-8 lg:mt-6">
+            <div class="canvas-wrapper ring-8 ring-slate-800/50" id="canvas-wrapper">
+                <div id="size-badge">0 x 0</div>
+                <div id="main-canvas">
+                    <div id="highlight-box" class="draggable active" style="width: 100px; height: 100px; top: 40%; left: 30%;">
+                        <span id="boxLabel" class="text-white font-bold select-none pointer-events-none text-center">Zone 06</span>
+                        <div class="resize-handle"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex flex-col items-center gap-2 text-center">
+                <div class="flex items-center gap-2 bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700">
+                    <span id="res-badge" class="text-slate-300 text-[10px] uppercase font-black tracking-[0.2em]">Ready</span>
+                </div>
+                <p class="text-slate-600 text-[9px] font-medium max-w-[300px]">Project adjusts to image aspect ratio. All elements are tracked in export.</p>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="record-canvas" width="720" height="1280" style="display:none;"></canvas>
+
+    <script>
+        const ARROW_PATHS = {
+            simple: "M11 5V14L7.5 10.5L6 12L12 18L18 12L16.5 10.5L13 14V5H11Z",
+            diagonal: "M19 19V9L15.5 12.5L12 9L5 16L6.5 17.5L12 12L14 14L10 18L11.5 19.5L15 16V19H19Z",
+            right: "M5 13h12.5l-3.5 3.5 1.5 1.5 6-6-6-6-1.5 1.5 3.5 3.5H5v2z",
+            curved: "M20 12c0-4.4-3.6-8-8-8S4 7.6 4 12v4l-2-2-1.4 1.4L4.3 19l3.7-3.6L6.6 14l-2.6 2.6v-4.6c0-3.3 2.7-6 6-6s6 2.7 6 6H20z",
+            double: "M21 12l-4-4v3H7V8l-4 4 4 4v-3h10v3l4-4z"
+        };
+
+        let activeElement = document.getElementById('highlight-box');
+        let elements = [activeElement];
+        let bgImage = null;
+
+        const els = {
+            imageInput: document.getElementById('imageInput'),
+            mainCanvas: document.getElementById('main-canvas'),
+            canvasWrapper: document.getElementById('canvas-wrapper'),
+            sizeBadge: document.getElementById('size-badge'),
+            resBadge: document.getElementById('res-badge'),
+            labelInput: document.getElementById('labelInput'),
+            showLabel: document.getElementById('showLabel'),
+            fontSize: document.getElementById('fontSize'),
+            fontSizeVal: document.getElementById('fontSizeVal'),
+            boxColor: document.getElementById('boxColor'),
+            boxOpacity: document.getElementById('boxOpacity'),
+            boxOpacityVal: document.getElementById('boxOpacityVal'),
+            borderWidth: document.getElementById('borderWidth'),
+            borderWidthVal: document.getElementById('borderWidthVal'),
+            rectWidth: document.getElementById('rectWidth'),
+            rectWidthVal: document.getElementById('rectWidthVal'),
+            rectHeight: document.getElementById('rectHeight'),
+            rectHeightVal: document.getElementById('rectHeightVal'),
+            posX: document.getElementById('posX'),
+            posXVal: document.getElementById('posXVal'),
+            posY: document.getElementById('posY'),
+            posYVal: document.getElementById('posYVal'),
+            animDuration: document.getElementById('animDuration'),
+            animDurationVal: document.getElementById('animDurationVal'),
+            animType: document.getElementById('animType'),
+            arrowType: document.getElementById('arrowType'),
+            addArrow: document.getElementById('addArrow'),
+            deleteSelected: document.getElementById('deleteSelected'),
+            btnMagic: document.getElementById('btnMagicRecord'),
+            btnStart: document.getElementById('btnStartRecord'),
+            btnDownload: document.getElementById('btnDownload'),
+            recordCanvas: document.getElementById('record-canvas'),
+            btnPulse: document.getElementById('btnPulse'),
+            btnToggle: document.getElementById('btnToggle'),
+            btnPulseOnce: document.getElementById('btnPulseOnce'),
+            btnReset: document.getElementById('btnReset'),
+            boxLabel: document.getElementById('boxLabel')
+        };
+
+        const ctx = els.recordCanvas.getContext('2d');
+
+        function setActive(el) {
+            elements.forEach(e => e.classList.remove('active'));
+            activeElement = el;
+            activeElement.classList.add('active');
+
+            const style = window.getComputedStyle(el);
+            els.boxOpacity.value = style.opacity || 1;
+            els.boxOpacityVal.textContent = parseFloat(els.boxOpacity.value).toFixed(2);
+            
+            els.posX.value = el.offsetLeft;
+            els.posXVal.textContent = el.offsetLeft;
+            els.posY.value = el.offsetTop;
+            els.posYVal.textContent = el.offsetTop;
+            
+            els.rectWidth.value = el.offsetWidth;
+            els.rectWidthVal.textContent = el.offsetWidth + 'px';
+            els.rectHeight.value = el.offsetHeight;
+            els.rectHeightVal.textContent = el.offsetHeight + 'px';
+
+            if (el.id === 'highlight-box') {
+                els.boxColor.value = rgbToHex(style.borderColor);
+                els.borderWidth.value = parseInt(style.borderWidth);
+                els.borderWidthVal.textContent = els.borderWidth.value + 'px';
+                
+                // Label Sync
+                els.fontSize.value = parseInt(els.boxLabel.style.fontSize) || 14;
+                els.fontSizeVal.textContent = els.fontSize.value + 'px';
+                els.labelInput.value = els.boxLabel.textContent;
+            } else {
+                els.boxColor.value = rgbToHex(style.color);
+                els.borderWidth.value = el.dataset.arrowSize || 2;
+                els.borderWidthVal.textContent = els.borderWidth.value + 'px';
+                els.arrowType.value = el.dataset.type || 'simple';
+            }
+        }
+
+        function rgbToHex(rgb) {
+            if (!rgb || rgb === 'rgba(0, 0, 0, 0)') return '#ef4444';
+            const vals = rgb.match(/\d+/g);
+            if (!vals) return '#ef4444';
+            return "#" + vals.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+        }
+
+        els.addArrow.addEventListener('click', () => {
+            const arrow = document.createElement('div');
+            arrow.className = 'draggable arrow-instance active';
+            arrow.style.top = '15%';
+            arrow.style.left = '15%';
+            arrow.style.color = els.boxColor.value;
+            arrow.dataset.type = els.arrowType.value;
+            arrow.dataset.arrowSize = els.borderWidth.value;
+            arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full drop-shadow-lg"><path d="${ARROW_PATHS[els.arrowType.value]}" /></svg><div class="resize-handle"></div>`;
+            els.mainCanvas.appendChild(arrow);
+            elements.push(arrow);
+            setupDraggable(arrow);
+            setActive(arrow);
+        });
+
+        els.deleteSelected.addEventListener('click', () => {
+            if (activeElement && activeElement.id !== 'highlight-box') {
+                activeElement.remove();
+                elements = elements.filter(e => e !== activeElement);
+                setActive(document.getElementById('highlight-box'));
+            }
+        });
+
+        els.imageInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const dataUrl = ev.target.result;
+                    bgImage = new Image();
+                    bgImage.onload = () => {
+                        els.canvasWrapper.style.aspectRatio = `${bgImage.width} / ${bgImage.height}`;
+                        els.mainCanvas.style.backgroundImage = `url(${dataUrl})`;
+                        els.recordCanvas.width = bgImage.width;
+                        els.recordCanvas.height = bgImage.height;
+                        
+                        const rect = els.canvasWrapper.getBoundingClientRect();
+                        els.posX.max = rect.width;
+                        els.posY.max = rect.height;
+                        els.rectWidth.max = rect.width;
+                        els.rectHeight.max = rect.height;
+                        
+                        els.resBadge.textContent = `${bgImage.width} x ${bgImage.height}`;
+                        els.sizeBadge.textContent = `${bgImage.width} x ${bgImage.height}`;
+                        els.sizeBadge.style.display = 'block';
+                        setActive(document.getElementById('highlight-box'));
+                    };
+                    bgImage.src = dataUrl;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Fix: Update text immediately on typing
+        els.labelInput.addEventListener('input', e => {
+            els.boxLabel.textContent = e.target.value;
+        });
+
+        els.showLabel.addEventListener('change', e => {
+            els.boxLabel.style.display = e.target.checked ? 'block' : 'none';
+        });
+        
+        els.fontSize.addEventListener('input', e => {
+            els.boxLabel.style.fontSize = `${e.target.value}px`;
+            els.fontSizeVal.textContent = e.target.value + 'px';
+        });
+
+        els.animDuration.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--anim-duration', `${e.target.value}s`);
+            els.animDurationVal.textContent = e.target.value + 's';
+        });
+
+        const updateSelected = () => {
+            if (!activeElement) return;
+            const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
+            
+            els.boxOpacityVal.textContent = parseFloat(els.boxOpacity.value).toFixed(2);
+            els.borderWidthVal.textContent = els.borderWidth.value + 'px';
+            els.posXVal.textContent = els.posX.value;
+            els.posYVal.textContent = els.posY.value;
+            els.rectWidthVal.textContent = els.rectWidth.value + 'px';
+            els.rectHeightVal.textContent = els.rectHeight.value + 'px';
+
+            activeElement.style.left = els.posX.value + 'px';
+            activeElement.style.top = els.posY.value + 'px';
+            activeElement.style.width = els.rectWidth.value + 'px';
+            activeElement.style.height = els.rectHeight.value + 'px';
+
+            if (activeElement.id === 'highlight-box') {
+                activeElement.style.backgroundColor = rgba;
+                activeElement.style.borderColor = els.boxColor.value;
+                activeElement.style.borderWidth = `${els.borderWidth.value}px`;
+            } else {
+                activeElement.style.color = els.boxColor.value;
+                activeElement.style.opacity = els.boxOpacity.value;
+                activeElement.dataset.arrowSize = els.borderWidth.value;
+                activeElement.dataset.type = els.arrowType.value;
+                activeElement.querySelector('path').setAttribute('d', ARROW_PATHS[els.arrowType.value]);
+            }
+        };
+
+        els.boxColor.addEventListener('input', updateSelected);
+        els.boxOpacity.addEventListener('input', updateSelected);
+        els.borderWidth.addEventListener('input', updateSelected);
+        els.arrowType.addEventListener('change', updateSelected);
+        els.posX.addEventListener('input', updateSelected);
+        els.posY.addEventListener('input', updateSelected);
+        els.rectWidth.addEventListener('input', updateSelected);
+        els.rectHeight.addEventListener('input', updateSelected);
+
+        const applyAnimClass = (className) => {
+            const el = document.getElementById('highlight-box');
+            el.classList.remove('anim-pulse', 'anim-fade', 'anim-bounce', 'anim-shake', 'anim-flash', 'anim-spin', 'anim-zoom', 'anim-float');
+            if (className) el.classList.add(className);
+        };
+
+        els.btnPulse.addEventListener('click', () => {
+            const el = document.getElementById('highlight-box');
+            el.classList.toggle('pulse-loop');
+            if(el.classList.contains('pulse-loop')) {
+                applyAnimClass(els.animType.value);
+                els.btnPulse.classList.replace('bg-slate-700', 'bg-red-600');
+                els.btnPulse.textContent = 'STOP LOOP';
+            } else {
+                applyAnimClass(null);
+                els.btnPulse.classList.replace('bg-red-600', 'bg-slate-700');
+                els.btnPulse.textContent = 'LOOP';
+            }
+        });
+
+        function setupDraggable(element) {
+            let isDragging = false;
+            let isResizing = false;
+            let startX, startY, startW, startH, startL, startT;
+            element.addEventListener('mousedown', e => {
+                setActive(element);
+                const handle = element.querySelector('.resize-handle');
+                if (e.target === handle) { isResizing = true; } else { isDragging = true; }
+                startX = e.clientX; startY = e.clientY;
+                startW = element.offsetWidth; startH = element.offsetHeight;
+                startL = element.offsetLeft; startT = element.offsetTop;
+                const onMove = ev => {
+                    if (isDragging) {
+                        const newLeft = startL + (ev.clientX - startX);
+                        const newTop = startT + (ev.clientY - startY);
+                        element.style.left = `${newLeft}px`;
+                        element.style.top = `${newTop}px`;
+                        els.posX.value = newLeft;
+                        els.posXVal.textContent = newLeft;
+                        els.posY.value = newTop;
+                        els.posYVal.textContent = newTop;
+                    } else if (isResizing) {
+                        const newWidth = startW + (ev.clientX - startX);
+                        const newHeight = startH + (ev.clientY - startY);
+                        element.style.width = `${newWidth}px`;
+                        element.style.height = `${newHeight}px`;
+                        els.rectWidth.value = newWidth;
+                        els.rectWidthVal.textContent = newWidth + 'px';
+                        els.rectHeight.value = newHeight;
+                        els.rectHeightVal.textContent = newHeight + 'px';
+                    }
+                };
+                const onEnd = () => { isDragging = isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onEnd);
+            });
+        }
+        setupDraggable(document.getElementById('highlight-box'));
+
+        let mediaRecorder;
+        let chunks = [];
+        let recordingActive = false;
+
+        function renderFrame() {
+            if (!recordingActive) return;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, els.recordCanvas.width, els.recordCanvas.height);
+            if (bgImage) {
+                ctx.drawImage(bgImage, 0, 0, els.recordCanvas.width, els.recordCanvas.height);
+            }
+            const captureRect = els.canvasWrapper.getBoundingClientRect();
+            elements.forEach(el => {
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none') return;
+                
+                const sx = els.recordCanvas.width / captureRect.width;
+                const sy = els.recordCanvas.height / captureRect.height;
+                
+                const x = el.offsetLeft * sx;
+                const y = el.offsetTop * sy;
+                const w = el.offsetWidth * sx;
+                const h = el.offsetHeight * sy;
+                
+                ctx.save();
+                ctx.globalAlpha = parseFloat(style.opacity);
+                const transform = style.transform;
+                if (transform && transform !== 'none') {
+                    const matrix = transform.match(/matrix\((.+)\)/);
+                    if (matrix) {
+                        const v = matrix[1].split(', ').map(parseFloat);
+                        ctx.translate(x + w/2, y + h/2);
+                        ctx.transform(v[0], v[1], v[2], v[3], 0, 0);
+                        ctx.translate(-(x + w/2), -(y + h/2));
+                    }
+                }
+                if (el.id === 'highlight-box') {
+                    ctx.fillStyle = style.backgroundColor; ctx.fillRect(x, y, w, h);
+                    const bW = parseInt(style.borderWidth) * sx;
+                    if (bW > 0) { ctx.strokeStyle = style.borderColor; ctx.lineWidth = bW; ctx.strokeRect(x, y, w, h); }
+                    
+                    // Fix: Use correct text content and calculated scale for font
+                    if (els.showLabel.checked) {
+                        ctx.fillStyle = 'white';
+                        const currentFontSize = parseInt(style.fontSize) || 14;
+                        ctx.font = `bold ${currentFontSize * sy}px sans-serif`;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(els.boxLabel.textContent, x + w/2, y + h/2);
+                    }
+                } else {
+                    ctx.fillStyle = style.color;
+                    const type = el.dataset.type || 'simple';
+                    const pathStr = ARROW_PATHS[type];
+                    const path = new Path2D(pathStr);
+                    ctx.translate(x, y); ctx.scale(w / 24, h / 24); ctx.fill(path);
+                }
+                ctx.restore();
+            });
+            requestAnimationFrame(renderFrame);
+        }
+
+        const startRec = () => {
+            recordingActive = true; chunks = []; document.body.classList.add('is-recording');
+            const stream = els.recordCanvas.captureStream(30);
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `plan-asset-${Date.now()}.webm`; a.click();
+            };
+            mediaRecorder.start(); renderFrame();
+        };
+
+        const stopRec = () => { recordingActive = false; if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); document.body.classList.remove('is-recording'); };
+
+        els.btnStart.addEventListener('click', () => {
+            if (!recordingActive) { startRec(); els.btnStart.textContent = "STOP RECORDING"; els.btnStart.classList.replace('bg-blue-600', 'bg-red-600'); } else { stopRec(); els.btnStart.textContent = "RECORD VIDEO"; els.btnStart.classList.replace('bg-red-600', 'bg-blue-600'); }
+        });
+
+        els.btnMagic.addEventListener('click', () => {
+            if (recordingActive) return;
+            startRec();
+            const el = document.getElementById('highlight-box');
+            const selectedAnim = els.animType.value;
+            el.classList.remove(selectedAnim);
+            void el.offsetWidth;
+            el.classList.add(selectedAnim);
+            setTimeout(stopRec, parseFloat(els.animDuration.value) * 1000);
+        });
+
+        function hexToRgba(hex, alpha) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return `rgba(${r}, ${g}, ${b}, ${alpha})`; }
+        els.btnToggle.addEventListener('click', () => { const isHidden = document.getElementById('highlight-box').classList.toggle('hidden-box'); els.btnToggle.textContent = isHidden ? 'SHOW BOX' : 'HIDE BOX'; });
+        els.btnPulseOnce.addEventListener('click', () => {
+            const el = document.getElementById('highlight-box');
+            const selectedAnim = els.animType.value;
+            el.classList.remove(selectedAnim); void el.offsetWidth; el.classList.add(selectedAnim);
+            if(!el.classList.contains('pulse-loop')) { setTimeout(() => el.classList.remove(selectedAnim), parseFloat(els.animDuration.value) * 1000); }
+        });
+        els.btnReset.addEventListener('click', () => location.reload());
+        els.btnDownload.addEventListener('click', async () => {
+            document.body.classList.add('taking-screenshot');
+            const canvas = await html2canvas(els.canvasWrapper, { backgroundColor: '#1e293b', scale: 2 });
+            const a = document.createElement('a'); a.download = 'plan.png'; a.href = canvas.toDataURL(); a.click();
+            document.body.classList.remove('taking-screenshot');
+        });
+    </script>
+</body>
+</html>
