@@ -265,7 +265,42 @@
                         </button>
                         <button id="btnMagicRecord" class="bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg text-[10px] font-black uppercase">Auto Loop</button>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="pt-1 border-t border-slate-800 space-y-2">
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">Quality Preset</span>
+                                <span id="qualityPresetVal" class="val-badge text-[9px]">1080p</span>
+                            </div>
+                            <select id="qualityPreset" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] outline-none cursor-pointer">
+                                <option value="720">720p (1280x720)</option>
+                                <option value="1080" selected>1080p (1920x1080)</option>
+                                <option value="1440">1440p (2560x1440)</option>
+                                <option value="4k">4K (3840x2160)</option>
+                                <option value="native">Native (Image Size)</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">Bitrate (Mbps)</span>
+                                <span id="bitrateVal" class="val-badge text-[9px]">10</span>
+                            </div>
+                            <input type="range" id="bitrate" min="1" max="50" step="1" value="10" class="h-1">
+                        </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">Frame Rate (fps)</span>
+                                <span id="fpsVal" class="val-badge text-[9px]">30</span>
+                            </div>
+                            <input type="range" id="fps" min="15" max="60" step="1" value="30" class="h-1">
+                        </div>
+                        <div class="text-[8px] text-slate-500 pt-1 border-t border-slate-800">
+                            <div class="flex justify-between">
+                                <span>Output:</span>
+                                <span id="qualityInfo" class="font-bold text-slate-400">1920x1080 @ 30fps</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-1 border-t border-slate-800">
                         <button id="btnDownload" class="flex-1 bg-emerald-700 hover:bg-emerald-600 py-2.5 rounded-lg text-[9px] font-black uppercase">Save PNG</button>
                         <button id="btnReset" class="flex-1 bg-slate-700 hover:bg-red-900/40 py-2.5 rounded-lg text-[9px] font-black uppercase">Reset</button>
                     </div>
@@ -409,7 +444,22 @@
             rotation: document.getElementById('rotation'),
             rotationVal: document.getElementById('rotationVal'),
             reuseArrow: document.getElementById('reuseArrow'),
-            reuseSvg: document.getElementById('reuseSvg')
+            reuseSvg: document.getElementById('reuseSvg'),
+            qualityPreset: document.getElementById('qualityPreset'),
+            qualityPresetVal: document.getElementById('qualityPresetVal'),
+            bitrate: document.getElementById('bitrate'),
+            bitrateVal: document.getElementById('bitrateVal'),
+            fps: document.getElementById('fps'),
+            fpsVal: document.getElementById('fpsVal'),
+            qualityInfo: document.getElementById('qualityInfo')
+        };
+
+        // Quality presets (width, height)
+        const QUALITY_PRESETS = {
+            '720': [1280, 720],
+            '1080': [1920, 1080],
+            '1440': [2560, 1440],
+            '4k': [3840, 2160]
         };
 
         // Saved elements for reuse
@@ -417,6 +467,9 @@
         let savedSvgs = [];
         
         const ctx = els.recordCanvas.getContext('2d');
+        // Enable high-quality image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         function setActive(el) {
             const wasAlreadyActive = activeElement === el;
@@ -649,6 +702,15 @@
             }
         });
 
+        // Helper function to replace currentColor with actual color in SVG XML
+        const replaceCurrentColorInSvgXml = (svgXml, actualColor) => {
+            // Replace fill="currentColor" and fill='currentColor' with actual color
+            svgXml = svgXml.replace(/fill=["']currentColor["']/gi, `fill="${actualColor}"`);
+            // Replace stroke="currentColor" and stroke='currentColor' with actual color
+            svgXml = svgXml.replace(/stroke=["']currentColor["']/gi, `stroke="${actualColor}"`);
+            return svgXml;
+        };
+
         const addCustomSvgElement = (svgContent) => {
             const svgDiv = document.createElement('div');
             svgDiv.className = 'draggable arrow-instance active';
@@ -721,7 +783,10 @@
                 }
                 
                 // Pre-load SVG as image for video recording - store the Image object directly
-                const svgData = new XMLSerializer().serializeToString(svgElement);
+                // IMPORTANT: Replace currentColor with actual color value for image rendering
+                let svgData = new XMLSerializer().serializeToString(svgElement);
+                const actualColor = svgDiv.style.color || rgbaColor; // Use current color from element
+                svgData = replaceCurrentColorInSvgXml(svgData, actualColor);
                 const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
                 const url = URL.createObjectURL(svgBlob);
                 const img = new Image();
@@ -830,8 +895,9 @@
                     bgImage.onload = () => {
                         els.canvasWrapper.style.aspectRatio = `${bgImage.width} / ${bgImage.height}`;
                         els.mainCanvas.style.backgroundImage = `url(${dataUrl})`;
-                        els.recordCanvas.width = bgImage.width;
-                        els.recordCanvas.height = bgImage.height;
+                        
+                        // Apply quality preset or use native size
+                        updateRecordCanvasSize();
                         
                         const rect = els.canvasWrapper.getBoundingClientRect();
                         els.posX.max = rect.width;
@@ -842,6 +908,7 @@
                         els.resBadge.textContent = `${bgImage.width} x ${bgImage.height}`;
                         els.sizeBadge.textContent = `${bgImage.width} x ${bgImage.height}`;
                         els.sizeBadge.style.display = 'block';
+                        updateQualityInfo();
                         setActive(document.getElementById('highlight-box'));
                     };
                     bgImage.src = dataUrl;
@@ -867,6 +934,56 @@
         els.animDuration.addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--anim-duration', `${e.target.value}s`);
             els.animDurationVal.textContent = e.target.value + 's';
+        });
+
+        // Quality settings functions
+        function updateRecordCanvasSize() {
+            const preset = els.qualityPreset.value;
+            if (preset === 'native' && bgImage) {
+                // Use native image size
+                els.recordCanvas.width = bgImage.width;
+                els.recordCanvas.height = bgImage.height;
+            } else if (QUALITY_PRESETS[preset]) {
+                // Use preset dimensions
+                const [width, height] = QUALITY_PRESETS[preset];
+                els.recordCanvas.width = width;
+                els.recordCanvas.height = height;
+            }
+            updateQualityInfo();
+        }
+
+        function updateQualityInfo() {
+            const width = els.recordCanvas.width;
+            const height = els.recordCanvas.height;
+            const fps = parseInt(els.fps.value) || 30;
+            els.qualityInfo.textContent = `${width}x${height} @ ${fps}fps`;
+        }
+
+        els.qualityPreset.addEventListener('change', () => {
+            const preset = els.qualityPreset.value;
+            els.qualityPresetVal.textContent = preset === 'native' ? 'Native' : 
+                                              preset === '4k' ? '4K' : 
+                                              preset + 'p';
+            if (bgImage) {
+                updateRecordCanvasSize();
+            } else {
+                // Default size if no image loaded
+                if (preset !== 'native') {
+                    const [width, height] = QUALITY_PRESETS[preset];
+                    els.recordCanvas.width = width;
+                    els.recordCanvas.height = height;
+                }
+                updateQualityInfo();
+            }
+        });
+
+        els.bitrate.addEventListener('input', (e) => {
+            els.bitrateVal.textContent = e.target.value;
+        });
+
+        els.fps.addEventListener('input', (e) => {
+            els.fpsVal.textContent = e.target.value;
+            updateQualityInfo();
         });
 
         const updateSelected = () => {
@@ -947,10 +1064,12 @@
                         URL.revokeObjectURL(activeElement.dataset.svgImageData);
                         delete activeElement.dataset.svgImageData;
                         delete activeElement._cachedSvgImage;
-                        // Re-cache the SVG with new color
+                        // Re-cache the SVG with new color - replace currentColor with actual color
                         const svgEl = activeElement.querySelector('svg');
                         if (svgEl) {
-                            const svgData = new XMLSerializer().serializeToString(svgEl);
+                            let svgData = new XMLSerializer().serializeToString(svgEl);
+                            // Replace currentColor with the actual RGBA color for image rendering
+                            svgData = replaceCurrentColorInSvgXml(svgData, rgba);
                             const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
                             const url = URL.createObjectURL(svgBlob);
                             const img = new Image();
@@ -1088,9 +1207,16 @@
 
         function renderFrame() {
             if (!recordingActive) return;
+            // Ensure high-quality rendering is enabled each frame
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, 0, els.recordCanvas.width, els.recordCanvas.height);
             if (bgImage) {
+                // Use high-quality image scaling
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(bgImage, 0, 0, els.recordCanvas.width, els.recordCanvas.height);
             }
             const captureRect = els.canvasWrapper.getBoundingClientRect();
@@ -1144,8 +1270,10 @@
                             // Fallback: try to load/cache if not already cached
                             let imgUrl = el.dataset.svgImageData;
                             if (!imgUrl) {
-                                // Serialize SVG to data URL
-                                const svgData = new XMLSerializer().serializeToString(svgElement);
+                                // Serialize SVG to data URL - replace currentColor with actual color
+                                let svgData = new XMLSerializer().serializeToString(svgElement);
+                                const actualColor = el.style.color || 'rgba(0, 0, 0, 1)'; // Get color from element
+                                svgData = replaceCurrentColorInSvgXml(svgData, actualColor);
                                 const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
                                 imgUrl = URL.createObjectURL(svgBlob);
                                 el.dataset.svgImageData = imgUrl;
@@ -1176,18 +1304,66 @@
 
         const startRec = () => {
             recordingActive = true; chunks = []; document.body.classList.add('is-recording');
-            const stream = els.recordCanvas.captureStream(30);
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-            mediaRecorder.ondataavailable = e => chunks.push(e.data);
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(chunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `plan-asset-${Date.now()}.webm`; a.click();
+            
+            // Ensure canvas size is updated based on quality preset
+            if (bgImage) {
+                updateRecordCanvasSize();
+            }
+            
+            const fps = parseInt(els.fps.value) || 30;
+            const stream = els.recordCanvas.captureStream(fps);
+            
+            // MediaRecorder options with bitrate
+            const bitrateMbps = parseInt(els.bitrate.value);
+            const bitrateBps = bitrateMbps * 1000000; // Convert Mbps to bps
+            
+            const options = { 
+                mimeType: 'video/webm',
+                videoBitsPerSecond: bitrateBps
             };
-            mediaRecorder.start(); renderFrame();
+            
+            // Try to use bitrate if supported, fallback to default
+            let supportedMimeType = 'video/webm';
+            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+                supportedMimeType = 'video/webm;codecs=vp9';
+            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+                supportedMimeType = 'video/webm;codecs=vp8';
+            }
+            options.mimeType = supportedMimeType;
+            
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) {
+                    chunks.push(e.data);
+                }
+            };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: supportedMimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = `plan-asset-${Date.now()}.webm`; 
+                a.click();
+            };
+            mediaRecorder.start(100); // Request data every 100ms for better quality
+            renderFrame();
         };
 
-        const stopRec = () => { recordingActive = false; if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); document.body.classList.remove('is-recording'); };
+        const stopRec = () => { 
+            if(mediaRecorder && mediaRecorder.state === 'recording') {
+                // Request final chunk to ensure all frames are captured
+                mediaRecorder.requestData();
+                // Small delay to ensure the final chunk is processed before stopping
+                setTimeout(() => {
+                    recordingActive = false;
+                    mediaRecorder.stop();
+                    document.body.classList.remove('is-recording');
+                }, 50);
+            } else {
+                recordingActive = false;
+                document.body.classList.remove('is-recording');
+            }
+        };
 
         els.btnStart.addEventListener('click', () => {
             if (!recordingActive) { startRec(); els.btnStart.textContent = "STOP RECORDING"; els.btnStart.classList.replace('bg-blue-600', 'bg-red-600'); } else { stopRec(); els.btnStart.textContent = "RECORD VIDEO"; els.btnStart.classList.replace('bg-red-600', 'bg-blue-600'); }
@@ -1201,7 +1377,10 @@
             el.classList.remove(selectedAnim);
             void el.offsetWidth;
             el.classList.add(selectedAnim);
-            setTimeout(stopRec, parseFloat(els.animDuration.value) * 1000);
+            // Add small buffer (100ms) to ensure all frames are captured at 30fps
+            // This accounts for frame boundaries and MediaRecorder chunk timing
+            const durationMs = parseFloat(els.animDuration.value) * 1000;
+            setTimeout(stopRec, durationMs + 100);
         });
 
         function hexToRgba(hex, alpha) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return `rgba(${r}, ${g}, ${b}, ${alpha})`; }
@@ -1219,6 +1398,12 @@
             const a = document.createElement('a'); a.download = 'plan.png'; a.href = canvas.toDataURL(); a.click();
             document.body.classList.remove('taking-screenshot');
         });
+
+        // Initialize quality info on page load
+        updateQualityInfo();
+        els.qualityPresetVal.textContent = '1080p';
+        els.bitrateVal.textContent = '10';
+        els.fpsVal.textContent = '30';
     </script>
 </body>
 </html>
