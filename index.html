@@ -39,13 +39,13 @@
         .draggable { position: absolute; cursor: move; touch-action: none; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
         .draggable.active { border-color: white; border-style: dashed; }
         
-        #highlight-box {
+        .overlay-box {
             background-color: rgba(239, 68, 68, 0.4);
             border: 2px solid #ef4444;
             transition: opacity 0.4s ease, transform 0.2s ease;
             z-index: 10; /* Above background image but can be moved behind other elements */
         }
-        #highlight-box.active { border-color: white; border-style: dashed; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        .overlay-box.active { border-color: white; border-style: dashed; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
 
         .arrow-instance { width: 60px; height: 60px; color: #ef4444; }
 
@@ -140,6 +140,23 @@
             </div>
 
             <div class="space-y-3">
+                <!-- 0. Overlay Management -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">0. Overlays</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="overlaySelect" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-[10px] outline-none cursor-pointer">
+                            <option value="overlay-1">Overlay 1</option>
+                        </select>
+                        <button id="addOverlay" class="bg-emerald-600 hover:bg-emerald-500 py-2 rounded-lg text-[9px] font-black uppercase">+ Add</button>
+                    </div>
+                    <div class="text-[8px] text-slate-500 pt-1 border-t border-slate-800">
+                        <div class="flex justify-between">
+                            <span>Active:</span>
+                            <span id="activeOverlayName" class="font-bold text-slate-400">Overlay 1</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 1. Label Settings -->
                 <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
                     <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">1. Label</label>
@@ -229,7 +246,13 @@
 
                 <!-- 4. Animation Settings -->
                 <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
-                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">4. Animation</label>
+                    <div class="flex items-center justify-between">
+                        <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">4. Animation</label>
+                        <label class="flex items-center gap-1.5 text-[9px] cursor-pointer select-none bg-slate-800 px-2 py-1 rounded border border-slate-700 hover:bg-slate-700">
+                            <input type="checkbox" id="animEnabled" class="accent-red-500 w-3 h-3"> 
+                            <span class="text-slate-400 font-bold">Enable</span>
+                        </label>
+                    </div>
                     <div class="flex gap-2">
                         <select id="animType" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] outline-none cursor-pointer">
                             <option value="anim-pulse">Pulse</option>
@@ -364,8 +387,8 @@
             <div class="canvas-wrapper ring-8 ring-slate-800/50" id="canvas-wrapper">
                 <div id="size-badge">0 x 0</div>
                 <div id="main-canvas">
-                    <div id="highlight-box" class="draggable active" style="width: 100px; height: 100px; top: 40%; left: 30%;">
-                        <span id="boxLabel" class="text-white font-bold select-none pointer-events-none text-center">Zone 06</span>
+                    <div id="overlay-1" class="overlay-box draggable active" data-overlay-id="overlay-1" data-anim-type="anim-pulse" data-anim-duration="1.5" data-anim-enabled="false" style="width: 100px; height: 100px; top: 40%; left: 30%;">
+                        <span class="overlay-label text-white font-bold select-none pointer-events-none text-center">Zone 06</span>
                         <div class="resize-handle"></div>
                     </div>
                 </div>
@@ -390,8 +413,11 @@
             double: "M21 12l-4-4v3H7V8l-4 4 4 4v-3h10v3l4-4z"
         };
 
-        let activeElement = document.getElementById('highlight-box');
+        let overlayCounter = 1;
+        let overlayNames = { 'overlay-1': 'Overlay 1' };
+        let activeElement = document.getElementById('overlay-1');
         let elements = [activeElement];
+        let overlays = [activeElement]; // Track all overlay boxes separately
         let bgImage = null;
 
         const els = {
@@ -421,6 +447,7 @@
             animDuration: document.getElementById('animDuration'),
             animDurationVal: document.getElementById('animDurationVal'),
             animType: document.getElementById('animType'),
+            animEnabled: document.getElementById('animEnabled'),
             arrowType: document.getElementById('arrowType'),
             addArrow: document.getElementById('addArrow'),
             deleteSelected: document.getElementById('deleteSelected'),
@@ -445,6 +472,9 @@
             rotationVal: document.getElementById('rotationVal'),
             reuseArrow: document.getElementById('reuseArrow'),
             reuseSvg: document.getElementById('reuseSvg'),
+            overlaySelect: document.getElementById('overlaySelect'),
+            addOverlay: document.getElementById('addOverlay'),
+            activeOverlayName: document.getElementById('activeOverlayName'),
             qualityPreset: document.getElementById('qualityPreset'),
             qualityPresetVal: document.getElementById('qualityPresetVal'),
             bitrate: document.getElementById('bitrate'),
@@ -471,6 +501,58 @@
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
+        // Helper functions for overlay management
+        function isOverlayBox(el) {
+            return el && el.classList && el.classList.contains('overlay-box');
+        }
+
+        function getOverlayLabel(overlayBox) {
+            return overlayBox ? overlayBox.querySelector('.overlay-label') : null;
+        }
+
+        function createOverlayBox(id, name) {
+            const overlay = document.createElement('div');
+            overlay.id = id;
+            overlay.className = 'overlay-box draggable';
+            overlay.dataset.overlayId = id;
+            overlay.dataset.animType = 'anim-pulse'; // Default animation type
+            overlay.dataset.animDuration = '1.5'; // Default animation duration
+            overlay.dataset.animEnabled = 'false'; // Animation disabled by default
+            overlay.style.width = '100px';
+            overlay.style.height = '100px';
+            overlay.style.top = `${30 + overlayCounter * 10}%`;
+            overlay.style.left = `${30 + overlayCounter * 5}%`;
+            overlay.style.backgroundColor = 'rgba(239, 68, 68, 0.4)';
+            overlay.style.borderColor = '#ef4444';
+            overlay.style.borderWidth = '2px';
+            overlay.style.zIndex = '10';
+            
+            const label = document.createElement('span');
+            label.className = 'overlay-label text-white font-bold select-none pointer-events-none text-center';
+            label.textContent = 'Zone 06';
+            label.style.fontSize = '14px';
+            overlay.appendChild(label);
+            
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            overlay.appendChild(resizeHandle);
+            
+            return overlay;
+        }
+
+        function updateOverlaySelect() {
+            els.overlaySelect.innerHTML = '';
+            overlays.forEach(overlay => {
+                const option = document.createElement('option');
+                option.value = overlay.id;
+                option.textContent = overlayNames[overlay.id] || overlay.id;
+                if (overlay === activeElement) {
+                    option.selected = true;
+                }
+                els.overlaySelect.appendChild(option);
+            });
+        }
+
         function setActive(el) {
             const wasAlreadyActive = activeElement === el;
             elements.forEach(e => e.classList.remove('active'));
@@ -480,7 +562,7 @@
             const style = window.getComputedStyle(el);
             // Extract opacity from color (rgba) instead of element opacity
             let extractedOpacity = 1;
-            if (el.id === 'highlight-box') {
+            if (isOverlayBox(el)) {
                 const bgColor = style.backgroundColor;
                 // Try to extract alpha from rgba background color
                 const rgbaMatch = bgColor.match(/rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*([\d.]+))?\s*\)/);
@@ -527,9 +609,24 @@
             els.zIndex.value = zIndex;
             els.zIndexVal.textContent = zIndex;
 
+            // Load animation settings per overlay
+            if (isOverlayBox(el)) {
+                const animType = el.dataset.animType || 'anim-pulse';
+                const animDuration = el.dataset.animDuration || '1.5';
+                const animEnabled = el.dataset.animEnabled === 'true';
+                els.animType.value = animType;
+                els.animDuration.value = animDuration;
+                els.animDurationVal.textContent = animDuration + 's';
+                els.animEnabled.checked = animEnabled;
+                document.documentElement.style.setProperty('--anim-duration', `${animDuration}s`);
+                
+                // Apply or remove animation based on enabled state
+                updateOverlayAnimation(el);
+            }
+
             // Only update colors if switching to a different element (not if already active)
             if (!wasAlreadyActive) {
-                if (el.id === 'highlight-box') {
+                if (isOverlayBox(el)) {
                     const borderColor = style.borderColor;
                     if (borderColor && borderColor !== 'rgba(0, 0, 0, 0)') {
                         els.boxColor.value = rgbToHex(borderColor);
@@ -538,12 +635,15 @@
                     els.borderWidthVal.textContent = els.borderWidth.value + 'px';
                     
                     // Label Sync
-                    els.fontSize.value = parseInt(els.boxLabel.style.fontSize) || 14;
-                    els.fontSizeVal.textContent = els.fontSize.value + 'px';
-                    els.labelInput.value = els.boxLabel.textContent;
-                    const labelColor = window.getComputedStyle(els.boxLabel).color;
-                    if (labelColor && labelColor !== 'rgba(0, 0, 0, 0)') {
-                        els.labelColor.value = rgbToHex(labelColor);
+                    const labelEl = getOverlayLabel(el);
+                    if (labelEl) {
+                        els.fontSize.value = parseInt(labelEl.style.fontSize) || 14;
+                        els.fontSizeVal.textContent = els.fontSize.value + 'px';
+                        els.labelInput.value = labelEl.textContent;
+                        const labelColor = window.getComputedStyle(labelEl).color;
+                        if (labelColor && labelColor !== 'rgba(0, 0, 0, 0)') {
+                            els.labelColor.value = rgbToHex(labelColor);
+                        }
                     }
                 } else {
                     const elementColor = style.color;
@@ -853,10 +953,22 @@
         });
 
         els.deleteSelected.addEventListener('click', () => {
-            if (activeElement && activeElement.id !== 'highlight-box') {
+            if (activeElement && isOverlayBox(activeElement)) {
+                // Don't allow deleting if it's the last overlay
+                if (overlays.length > 1) {
+                    overlays = overlays.filter(e => e !== activeElement);
+                    elements = elements.filter(e => e !== activeElement);
+                    delete overlayNames[activeElement.id];
+                    activeElement.remove();
+                    setActive(overlays[0]); // Select first remaining overlay
+                    updateOverlaySelect();
+                }
+            } else if (activeElement && !isOverlayBox(activeElement)) {
                 activeElement.remove();
                 elements = elements.filter(e => e !== activeElement);
-                setActive(document.getElementById('highlight-box'));
+                if (overlays.length > 0) {
+                    setActive(overlays[0]);
+                }
             }
         });
 
@@ -871,14 +983,15 @@
 
         els.sendToBack.addEventListener('click', () => {
             if (activeElement && activeElement.parentElement) {
-                // Get the highlight-box as reference for back position
-                const highlightBox = document.getElementById('highlight-box');
-                if (highlightBox && activeElement.id !== 'highlight-box') {
-                    // Insert before highlight-box (but highlight-box stays at back)
-                    highlightBox.parentElement.insertBefore(activeElement, highlightBox.nextSibling);
-                    activeElement.style.zIndex = '10'; // Minimum z-index above background
+                if (!isOverlayBox(activeElement)) {
+                    // For non-overlay elements, insert before first overlay
+                    if (overlays.length > 0) {
+                        const firstOverlay = overlays[0];
+                        firstOverlay.parentElement.insertBefore(activeElement, firstOverlay);
+                        activeElement.style.zIndex = '10'; // Minimum z-index above background
+                    }
                 } else {
-                    // If highlight-box is selected, just ensure it's first but still above background
+                    // For overlay boxes, move to first position
                     activeElement.parentElement.insertBefore(activeElement, activeElement.parentElement.firstChild);
                     activeElement.style.zIndex = '5'; // Keep above background image
                 }
@@ -909,7 +1022,9 @@
                         els.sizeBadge.textContent = `${bgImage.width} x ${bgImage.height}`;
                         els.sizeBadge.style.display = 'block';
                         updateQualityInfo();
-                        setActive(document.getElementById('highlight-box'));
+                        if (overlays.length > 0) {
+                            setActive(overlays[0]);
+                        }
                     };
                     bgImage.src = dataUrl;
                 };
@@ -919,21 +1034,55 @@
 
         // Fix: Update text immediately on typing
         els.labelInput.addEventListener('input', e => {
-            els.boxLabel.textContent = e.target.value;
+            if (isOverlayBox(activeElement)) {
+                const labelEl = getOverlayLabel(activeElement);
+                if (labelEl) labelEl.textContent = e.target.value;
+            }
         });
 
         els.showLabel.addEventListener('change', e => {
-            els.boxLabel.style.display = e.target.checked ? 'block' : 'none';
+            if (isOverlayBox(activeElement)) {
+                const labelEl = getOverlayLabel(activeElement);
+                if (labelEl) labelEl.style.display = e.target.checked ? 'block' : 'none';
+            }
         });
         
         els.fontSize.addEventListener('input', e => {
-            els.boxLabel.style.fontSize = `${e.target.value}px`;
+            if (isOverlayBox(activeElement)) {
+                const labelEl = getOverlayLabel(activeElement);
+                if (labelEl) labelEl.style.fontSize = `${e.target.value}px`;
+            }
             els.fontSizeVal.textContent = e.target.value + 'px';
         });
 
         els.animDuration.addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--anim-duration', `${e.target.value}s`);
-            els.animDurationVal.textContent = e.target.value + 's';
+            const duration = e.target.value;
+            document.documentElement.style.setProperty('--anim-duration', `${duration}s`);
+            els.animDurationVal.textContent = duration + 's';
+            // Save animation duration to active overlay
+            if (isOverlayBox(activeElement)) {
+                activeElement.dataset.animDuration = duration;
+                // Update animation if enabled
+                if (activeElement.dataset.animEnabled === 'true') {
+                    updateOverlayAnimation(activeElement);
+                }
+            }
+        });
+
+        els.animType.addEventListener('change', (e) => {
+            // Save animation type to active overlay
+            if (isOverlayBox(activeElement)) {
+                activeElement.dataset.animType = e.target.value;
+                updateOverlayAnimation(activeElement);
+            }
+        });
+
+        els.animEnabled.addEventListener('change', (e) => {
+            // Save animation enabled state to active overlay
+            if (isOverlayBox(activeElement)) {
+                activeElement.dataset.animEnabled = e.target.checked ? 'true' : 'false';
+                updateOverlayAnimation(activeElement);
+            }
         });
 
         // Quality settings functions
@@ -1012,8 +1161,8 @@
             activeElement.style.zIndex = els.zIndex.value;
             els.zIndexVal.textContent = els.zIndex.value;
 
-            if (activeElement.id === 'highlight-box') {
-                // For highlight-box, apply opacity to background color (rgba), not element opacity
+            if (isOverlayBox(activeElement)) {
+                // For overlay box, apply opacity to background color (rgba), not element opacity
                 const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
                 activeElement.style.backgroundColor = rgba;
                 activeElement.style.borderColor = els.boxColor.value;
@@ -1021,8 +1170,13 @@
                 // Ensure element opacity is 1 (full) so only color opacity applies
                 activeElement.style.opacity = '1';
                 
-                // Label color
-                els.boxLabel.style.color = els.labelColor.value;
+                // Label color and text
+                const labelEl = getOverlayLabel(activeElement);
+                if (labelEl) {
+                    labelEl.style.color = els.labelColor.value;
+                    labelEl.style.fontSize = `${els.fontSize.value}px`;
+                    labelEl.textContent = els.labelInput.value;
+                }
             } else if (activeElement.dataset.customSvg === 'true') {
                 // Custom SVG element - apply opacity to color using rgba, not element opacity
                 const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
@@ -1137,26 +1291,63 @@
         els.rotation.addEventListener('input', updateSelected);
         els.zIndex.addEventListener('input', updateSelected);
         els.labelColor.addEventListener('input', () => {
-            if (activeElement && activeElement.id === 'highlight-box') {
-                els.boxLabel.style.color = els.labelColor.value;
+            if (isOverlayBox(activeElement)) {
+                const labelEl = getOverlayLabel(activeElement);
+                if (labelEl) labelEl.style.color = els.labelColor.value;
             }
         });
 
-        const applyAnimClass = (className) => {
-            const el = document.getElementById('highlight-box');
+        const applyAnimClass = (el, className) => {
+            if (!el) return;
             el.classList.remove('anim-pulse', 'anim-fade', 'anim-bounce', 'anim-shake', 'anim-flash', 'anim-spin', 'anim-zoom', 'anim-float');
             if (className) el.classList.add(className);
         };
 
+        // Update overlay animation based on its enabled state and settings
+        function updateOverlayAnimation(overlay) {
+            if (!isOverlayBox(overlay)) return;
+            const animEnabled = overlay.dataset.animEnabled === 'true';
+            const animType = overlay.dataset.animType || 'anim-pulse';
+            
+            // Remove all animation classes first (but keep pulse-loop if it exists)
+            const hasLoop = overlay.classList.contains('pulse-loop');
+            overlay.classList.remove('anim-pulse', 'anim-fade', 'anim-bounce', 'anim-shake', 'anim-flash', 'anim-spin', 'anim-zoom', 'anim-float');
+            
+            // Apply animation if enabled
+            if (animEnabled) {
+                overlay.classList.add(animType);
+            }
+            
+            // Restore pulse-loop if it was there
+            if (hasLoop) {
+                overlay.classList.add('pulse-loop');
+            }
+        }
+
+        // Update all overlays' animations
+        function updateAllOverlayAnimations() {
+            overlays.forEach(overlay => {
+                updateOverlayAnimation(overlay);
+            });
+        }
+
         els.btnPulse.addEventListener('click', () => {
-            const el = document.getElementById('highlight-box');
+            const el = isOverlayBox(activeElement) ? activeElement : null;
+            if (!el) return;
+            // Toggle loop mode for this overlay
             el.classList.toggle('pulse-loop');
             if(el.classList.contains('pulse-loop')) {
-                applyAnimClass(els.animType.value);
+                // Enable animation and start looping
+                el.dataset.animEnabled = 'true';
+                els.animEnabled.checked = true;
+                updateOverlayAnimation(el);
                 els.btnPulse.classList.replace('bg-slate-700', 'bg-red-600');
                 els.btnPulse.textContent = 'STOP LOOP';
             } else {
-                applyAnimClass(null);
+                // Disable animation
+                el.dataset.animEnabled = 'false';
+                els.animEnabled.checked = false;
+                updateOverlayAnimation(el);
                 els.btnPulse.classList.replace('bg-red-600', 'bg-slate-700');
                 els.btnPulse.textContent = 'LOOP';
             }
@@ -1169,7 +1360,13 @@
             element.addEventListener('mousedown', e => {
                 setActive(element);
                 const handle = element.querySelector('.resize-handle');
-                if (e.target === handle) { isResizing = true; } else { isDragging = true; }
+                // Check if clicking on resize handle (or if it contains the target)
+                if (handle && (e.target === handle || handle.contains(e.target))) {
+                    isResizing = true;
+                } else {
+                    // Allow dragging from anywhere on the overlay (including label)
+                    isDragging = true;
+                }
                 startX = e.clientX; startY = e.clientY;
                 startW = element.offsetWidth; startH = element.offsetHeight;
                 startL = element.offsetLeft; startT = element.offsetTop;
@@ -1199,7 +1396,10 @@
                 document.addEventListener('mouseup', onEnd);
             });
         }
-        setupDraggable(document.getElementById('highlight-box'));
+        // Setup draggable for initial overlay
+        if (overlays.length > 0) {
+            setupDraggable(overlays[0]);
+        }
 
         let mediaRecorder;
         let chunks = [];
@@ -1244,18 +1444,19 @@
                         ctx.translate(-(x + w/2), -(y + h/2));
                     }
                 }
-                if (el.id === 'highlight-box') {
+                if (isOverlayBox(el)) {
                     ctx.fillStyle = style.backgroundColor; ctx.fillRect(x, y, w, h);
                     const bW = parseInt(style.borderWidth) * sx;
                     if (bW > 0) { ctx.strokeStyle = style.borderColor; ctx.lineWidth = bW; ctx.strokeRect(x, y, w, h); }
                     
-                    // Fix: Use correct text content and calculated scale for font
-                    if (els.showLabel.checked) {
-                        ctx.fillStyle = 'white';
-                        const currentFontSize = parseInt(style.fontSize) || 14;
+                    // Use correct text content and calculated scale for font
+                    const labelEl = getOverlayLabel(el);
+                    if (labelEl && els.showLabel.checked) {
+                        ctx.fillStyle = window.getComputedStyle(labelEl).color || 'white';
+                        const currentFontSize = parseInt(window.getComputedStyle(labelEl).fontSize) || 14;
                         ctx.font = `bold ${currentFontSize * sy}px sans-serif`;
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillText(els.boxLabel.textContent, x + w/2, y + h/2);
+                        ctx.fillText(labelEl.textContent, x + w/2, y + h/2);
                     }
                 } else if (el.dataset.customSvg === 'true') {
                     // Custom SVG element - use pre-loaded cached image
@@ -1371,25 +1572,54 @@
 
         els.btnMagic.addEventListener('click', () => {
             if (recordingActive) return;
+            const el = isOverlayBox(activeElement) ? activeElement : null;
+            if (!el) return;
             startRec();
-            const el = document.getElementById('highlight-box');
-            const selectedAnim = els.animType.value;
-            el.classList.remove(selectedAnim);
+            // Use overlay's own animation settings
+            const overlayAnimType = el.dataset.animType || els.animType.value;
+            const overlayAnimDuration = el.dataset.animDuration || els.animDuration.value;
+            
+            // Enable animation for this overlay if not already enabled
+            if (el.dataset.animEnabled !== 'true') {
+                el.dataset.animEnabled = 'true';
+                els.animEnabled.checked = true;
+            }
+            
+            // Apply animation
+            el.classList.remove(overlayAnimType);
             void el.offsetWidth;
-            el.classList.add(selectedAnim);
+            el.classList.add(overlayAnimType);
+            
             // Add small buffer (100ms) to ensure all frames are captured at 30fps
             // This accounts for frame boundaries and MediaRecorder chunk timing
-            const durationMs = parseFloat(els.animDuration.value) * 1000;
-            setTimeout(stopRec, durationMs + 100);
+            const durationMs = parseFloat(overlayAnimDuration) * 1000;
+            setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.requestData();
+                    setTimeout(stopRec, 50);
+                }
+            }, durationMs + 100);
         });
 
         function hexToRgba(hex, alpha) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return `rgba(${r}, ${g}, ${b}, ${alpha})`; }
-        els.btnToggle.addEventListener('click', () => { const isHidden = document.getElementById('highlight-box').classList.toggle('hidden-box'); els.btnToggle.textContent = isHidden ? 'SHOW BOX' : 'HIDE BOX'; });
+        els.btnToggle.addEventListener('click', () => { 
+            const el = isOverlayBox(activeElement) ? activeElement : null;
+            if (!el) return;
+            const isHidden = el.classList.toggle('hidden-box'); 
+            els.btnToggle.textContent = isHidden ? 'SHOW BOX' : 'HIDE BOX'; 
+        });
         els.btnPulseOnce.addEventListener('click', () => {
-            const el = document.getElementById('highlight-box');
-            const selectedAnim = els.animType.value;
-            el.classList.remove(selectedAnim); void el.offsetWidth; el.classList.add(selectedAnim);
-            if(!el.classList.contains('pulse-loop')) { setTimeout(() => el.classList.remove(selectedAnim), parseFloat(els.animDuration.value) * 1000); }
+            const el = isOverlayBox(activeElement) ? activeElement : null;
+            if (!el) return;
+            // Use overlay's own animation settings
+            const overlayAnimType = el.dataset.animType || els.animType.value;
+            const overlayAnimDuration = el.dataset.animDuration || els.animDuration.value;
+            el.classList.remove(overlayAnimType); 
+            void el.offsetWidth; 
+            el.classList.add(overlayAnimType);
+            if(!el.classList.contains('pulse-loop')) { 
+                setTimeout(() => el.classList.remove(overlayAnimType), parseFloat(overlayAnimDuration) * 1000); 
+            }
         });
         els.btnReset.addEventListener('click', () => location.reload());
         els.btnDownload.addEventListener('click', async () => {
@@ -1404,6 +1634,51 @@
         els.qualityPresetVal.textContent = '1080p';
         els.bitrateVal.textContent = '10';
         els.fpsVal.textContent = '30';
+
+        // Overlay management
+        updateOverlaySelect();
+        
+        els.overlaySelect.addEventListener('change', () => {
+            const overlayId = els.overlaySelect.value;
+            const overlay = document.getElementById(overlayId);
+            if (overlay) {
+                setActive(overlay);
+                els.activeOverlayName.textContent = overlayNames[overlayId] || overlayId;
+            }
+        });
+
+        els.addOverlay.addEventListener('click', () => {
+            overlayCounter++;
+            const overlayId = `overlay-${overlayCounter}`;
+            const overlayName = `Overlay ${overlayCounter}`;
+            overlayNames[overlayId] = overlayName;
+            
+            const newOverlay = createOverlayBox(overlayId, overlayName);
+            els.mainCanvas.appendChild(newOverlay);
+            overlays.push(newOverlay);
+            elements.push(newOverlay);
+            setupDraggable(newOverlay);
+            setActive(newOverlay);
+            updateOverlaySelect();
+            els.activeOverlayName.textContent = overlayName;
+        });
+
+        // Update active overlay name when selection changes
+        function updateActiveOverlayName() {
+            if (isOverlayBox(activeElement)) {
+                els.activeOverlayName.textContent = overlayNames[activeElement.id] || activeElement.id;
+            }
+        }
+
+        // Override setActive to update overlay name
+        const originalSetActive = setActive;
+        setActive = function(el) {
+            originalSetActive(el);
+            if (isOverlayBox(el)) {
+                els.overlaySelect.value = el.id;
+                updateActiveOverlayName();
+            }
+        };
     </script>
 </body>
 </html>
