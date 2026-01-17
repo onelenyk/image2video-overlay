@@ -43,6 +43,7 @@
             background-color: rgba(239, 68, 68, 0.4);
             border: 2px solid #ef4444;
             transition: opacity 0.4s ease, transform 0.2s ease;
+            z-index: 10; /* Above background image but can be moved behind other elements */
         }
         #highlight-box.active { border-color: white; border-style: dashed; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
 
@@ -138,151 +139,189 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-5">
-                <!-- Section 1: Label Settings -->
-                <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
-                    <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-2">1. Label Settings</label>
-                    <div class="flex gap-3">
-                        <input type="text" id="labelInput" value="Zone 06" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-500/50 transition-all">
-                        <label class="flex items-center gap-2 text-xs cursor-pointer select-none bg-slate-800 px-4 rounded-lg border border-slate-700 min-w-[100px] justify-center hover:bg-slate-700 transition-colors">
-                            <input type="checkbox" id="showLabel" checked class="accent-red-500 w-4 h-4"> <span class="text-slate-400 font-bold">Visible</span>
+            <div class="space-y-3">
+                <!-- 1. Label Settings -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">1. Label</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="labelInput" value="Zone 06" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-red-500/50">
+                        <label class="flex items-center gap-1.5 text-[10px] cursor-pointer select-none bg-slate-800 px-3 rounded-lg border border-slate-700 hover:bg-slate-700">
+                            <input type="checkbox" id="showLabel" checked class="accent-red-500 w-3 h-3"> <span class="text-slate-400 font-bold">Show</span>
                         </label>
+                        <input type="color" id="labelColor" value="#ffffff" class="h-9 w-12 bg-transparent cursor-pointer rounded-lg border border-slate-700">
                     </div>
                     <div class="control-group">
                         <div class="label-row">
-                            <span class="text-[11px] font-bold text-slate-400">Font Size</span>
-                            <span id="fontSizeVal" class="val-badge">14px</span>
+                            <span class="text-[10px] font-bold text-slate-400">Font Size</span>
+                            <span id="fontSizeVal" class="val-badge text-[9px]">14px</span>
                         </div>
-                        <input type="range" id="fontSize" min="10" max="60" value="14">
+                        <input type="range" id="fontSize" min="10" max="60" value="14" class="h-1">
                     </div>
                 </div>
 
-                <!-- Section 2: Style, Size & Position -->
-                <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-5 shadow-inner">
-                    <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-2">2. Style, Size & Position</label>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between gap-3">
-                                <span class="text-[11px] font-bold text-slate-400">Box Color</span>
-                                <input type="color" id="boxColor" value="#ef4444" class="h-10 w-20 bg-transparent cursor-pointer rounded-lg overflow-hidden border-2 border-slate-700">
-                            </div>
-                            <div class="control-group">
-                                <div class="label-row">
-                                    <span class="text-[11px] font-bold text-slate-400">Opacity</span>
-                                    <span id="boxOpacityVal" class="val-badge">0.4</span>
-                                </div>
-                                <input type="range" id="boxOpacity" min="0" max="1" step="0.05" value="0.4">
-                            </div>
-                            <div class="control-group">
-                                <div class="label-row">
-                                    <span class="text-[11px] font-bold text-slate-400">Thickness</span>
-                                    <span id="borderWidthVal" class="val-badge">2px</span>
-                                </div>
-                                <input type="range" id="borderWidth" min="0" max="30" value="2">
-                            </div>
-                        </div>
-                        
-                        <div class="space-y-4">
-                            <div class="control-group">
-                                <div class="label-row">
-                                    <span class="text-[11px] font-bold text-slate-400 text-indigo-400">Width</span>
-                                    <span id="rectWidthVal" class="val-badge">100px</span>
-                                </div>
-                                <input type="range" id="rectWidth" min="10" max="500" value="100">
-                            </div>
-                            <div class="control-group">
-                                <div class="label-row">
-                                    <span class="text-[11px] font-bold text-slate-400 text-indigo-400">Height</span>
-                                    <span id="rectHeightVal" class="val-badge">100px</span>
-                                </div>
-                                <input type="range" id="rectHeight" min="10" max="800" value="100">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4 pt-4 border-t border-slate-800">
-                        <div class="control-group">
-                            <div class="label-row">
-                                <span class="text-[11px] font-bold text-slate-400">Position X</span>
-                                <span id="posXVal" class="val-badge">0</span>
-                            </div>
-                            <input type="range" id="posX" min="0" max="500" value="0">
-                        </div>
-                        <div class="control-group">
-                            <div class="label-row">
-                                <span class="text-[11px] font-bold text-slate-400">Position Y</span>
-                                <span id="posYVal" class="val-badge">0</span>
-                            </div>
-                            <input type="range" id="posY" min="0" max="800" value="0">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 3 & 4 Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
-                        <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-1">3. Manager</label>
-                        <div class="flex gap-2">
-                            <button id="addArrow" class="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg text-[11px] font-black transition-all uppercase tracking-widest shadow-lg shadow-green-900/20">Add Arrow</button>
-                            <button id="deleteSelected" class="flex-1 bg-slate-700 hover:bg-red-700 py-3 rounded-lg text-[11px] font-black transition-all uppercase tracking-widest border border-slate-600">Delete</button>
-                        </div>
-                        <select id="arrowType" class="w-full bg-slate-800 border border-slate-700 rounded-lg text-[11px] py-3 px-3 outline-none cursor-pointer focus:ring-2 focus:ring-red-500/30">
-                            <option value="simple">Simple Arrow</option>
-                            <option value="diagonal">Diagonal Arrow</option>
-                            <option value="right">Horizontal Right</option>
-                            <option value="curved">Curved Arrow</option>
-                            <option value="double">Double Headed</option>
+                <!-- 2. UI Elements Settings -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">2. Elements</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="arrowType" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-[10px] outline-none cursor-pointer">
+                            <option value="simple">Arrow</option>
+                            <option value="diagonal">Diagonal</option>
+                            <option value="right">Right</option>
+                            <option value="curved">Curved</option>
+                            <option value="double">Double</option>
                         </select>
+                        <div class="flex gap-1">
+                            <button id="addArrow" class="flex-1 bg-green-600 hover:bg-green-500 py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
+                            <button id="reuseArrow" class="flex-1 bg-green-700 hover:bg-green-600 py-2 rounded-lg text-[9px] font-black uppercase">Reuse</button>
+                        </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="document.getElementById('svgFileInput').click()" class="bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg text-[9px] font-black uppercase">Upload SVG</button>
+                        <div class="flex gap-1">
+                            <button id="addCustomSvg" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
+                            <button id="reuseSvg" class="flex-1 bg-indigo-700 hover:bg-indigo-600 py-2 rounded-lg text-[9px] font-black uppercase">Reuse</button>
+                        </div>
+                    </div>
+                    <textarea id="svgTextInput" placeholder="Paste SVG..." class="w-full bg-slate-800 border border-slate-700 rounded-lg text-[9px] py-1.5 px-2 outline-none h-16 font-mono text-slate-300 placeholder-slate-500 resize-none"></textarea>
+                    <input type="file" id="svgFileInput" accept=".svg,image/svg+xml" class="hidden">
+                    <div class="flex gap-2 pt-1 border-t border-slate-800">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[9px] font-bold text-slate-400">Color (RGBA)</span>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="color" id="boxColor" value="#ef4444" class="h-6 w-10 bg-transparent cursor-pointer rounded border border-slate-700">
+                                    <input type="text" id="rgbaInput" value="rgba(239,68,68,0.4)" placeholder="rgba(r,g,b,a)" class="text-[8px] font-mono text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 w-24 outline-none focus:ring-1 focus:ring-red-500/50">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <div class="label-row">
+                                    <span class="text-[9px] font-bold text-slate-400">Opacity</span>
+                                    <span id="boxOpacityVal" class="val-badge text-[9px]">0.4</span>
+                                </div>
+                                <input type="range" id="boxOpacity" min="0" max="1" step="0.05" value="0.4" class="h-1">
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="label-row mb-1">
+                                <span class="text-[9px] font-bold text-slate-400">Z-Index</span>
+                                <span id="zIndexVal" class="val-badge text-[9px]">100</span>
+                            </div>
+                            <input type="range" id="zIndex" min="1" max="1000" value="100" class="h-1">
+                        </div>
+                    </div>
+                    <div class="flex gap-1 pt-1 border-t border-slate-800">
+                        <button id="deleteSelected" class="flex-1 bg-red-700 hover:bg-red-600 py-2 rounded-lg text-[9px] font-black uppercase">Delete</button>
+                        <button id="bringToFront" class="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-lg text-[9px] font-black uppercase">Front</button>
+                        <button id="sendToBack" class="flex-1 bg-blue-700 hover:bg-blue-600 py-2 rounded-lg text-[9px] font-black uppercase">Back</button>
+                    </div>
+                </div>
 
-                    <div class="p-5 bg-slate-900/60 rounded-2xl border border-slate-700 space-y-4 shadow-inner">
-                        <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest block border-b border-slate-800 pb-2 mb-1">4. Animations</label>
-                        <div class="flex gap-2">
-                            <select id="animType" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-3 text-[11px] outline-none focus:ring-2 focus:ring-red-500/30 px-3 cursor-pointer">
-                                <option value="anim-pulse">Pulse</option>
-                                <option value="anim-bounce">Bounce</option>
-                                <option value="anim-fade">Fade</option>
-                                <option value="anim-shake">Shake</option>
-                                <option value="anim-flash">Flash</option>
-                                <option value="anim-spin">Spin</option>
-                                <option value="anim-zoom">Zoom</option>
-                                <option value="anim-float">Float</option>
-                            </select>
-                            <button id="btnPulse" class="bg-slate-700 hover:bg-red-600 px-4 py-3 rounded-lg text-[11px] font-black uppercase transition-all whitespace-nowrap tracking-widest">Loop</button>
+                <!-- 3. Plan Image -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">3. Plan Image</label>
+                    <button onclick="document.getElementById('imageInput').click()" class="w-full bg-slate-100 text-slate-900 py-2.5 rounded-lg text-[10px] font-black uppercase hover:bg-white transition-all">Upload</button>
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                    <div class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>Size:</span>
+                        <span id="resBadge" class="font-bold">Ready</span>
+                    </div>
+                </div>
+
+                <!-- 4. Animation Settings -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">4. Animation</label>
+                    <div class="flex gap-2">
+                        <select id="animType" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] outline-none cursor-pointer">
+                            <option value="anim-pulse">Pulse</option>
+                            <option value="anim-bounce">Bounce</option>
+                            <option value="anim-fade">Fade</option>
+                            <option value="anim-shake">Shake</option>
+                            <option value="anim-flash">Flash</option>
+                            <option value="anim-spin">Spin</option>
+                            <option value="anim-zoom">Zoom</option>
+                            <option value="anim-float">Float</option>
+                        </select>
+                        <button id="btnPulse" class="bg-slate-700 hover:bg-red-600 px-3 py-2 rounded-lg text-[9px] font-black uppercase">Loop</button>
+                    </div>
+                    <div class="control-group">
+                        <div class="label-row">
+                            <span class="text-[10px] font-bold text-slate-400">Duration</span>
+                            <span id="animDurationVal" class="val-badge text-[9px]">1.5s</span>
+                        </div>
+                        <input type="range" id="animDuration" min="0.2" max="5.0" step="0.1" value="1.5" class="h-1">
+                    </div>
+                    <div class="flex gap-1 pt-1 border-t border-slate-800">
+                        <button id="btnToggle" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-[9px] font-black uppercase">Hide Box</button>
+                        <button id="btnPulseOnce" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-[9px] font-black uppercase">Play Once</button>
+                    </div>
+                </div>
+
+                <!-- 5. Video Recording -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">5. Recording</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnStartRecord" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> Record
+                        </button>
+                        <button id="btnMagicRecord" class="bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg text-[10px] font-black uppercase">Auto Loop</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btnDownload" class="flex-1 bg-emerald-700 hover:bg-emerald-600 py-2.5 rounded-lg text-[9px] font-black uppercase">Save PNG</button>
+                        <button id="btnReset" class="flex-1 bg-slate-700 hover:bg-red-900/40 py-2.5 rounded-lg text-[9px] font-black uppercase">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Element Properties (Size, Position, Rotation) -->
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
+                    <label class="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Properties</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">W</span>
+                                <span id="rectWidthVal" class="val-badge text-[9px]">100px</span>
+                            </div>
+                            <input type="range" id="rectWidth" min="10" max="500" value="100" class="h-1">
                         </div>
                         <div class="control-group">
                             <div class="label-row">
-                                <span class="text-[11px] font-bold text-slate-400">Duration</span>
-                                <span id="animDurationVal" class="val-badge">1.5s</span>
+                                <span class="text-[9px] font-bold text-slate-400">H</span>
+                                <span id="rectHeightVal" class="val-badge text-[9px]">100px</span>
                             </div>
-                            <input type="range" id="animDuration" min="0.2" max="5.0" step="0.1" value="1.5">
+                            <input type="range" id="rectHeight" min="10" max="800" value="100" class="h-1">
                         </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">X</span>
+                                <span id="posXVal" class="val-badge text-[9px]">0</span>
+                            </div>
+                            <input type="range" id="posX" min="0" max="500" value="0" class="h-1">
+                        </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">Y</span>
+                                <span id="posYVal" class="val-badge text-[9px]">0</span>
+                            </div>
+                            <input type="range" id="posY" min="0" max="800" value="0" class="h-1">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="label-row">
+                            <span class="text-[9px] font-bold text-slate-400">Rotation</span>
+                            <span id="rotationVal" class="val-badge text-[9px]">0°</span>
+                        </div>
+                        <input type="range" id="rotation" min="0" max="360" value="0" class="h-1">
+                    </div>
+                    <div class="control-group pt-1 border-t border-slate-800">
+                        <div class="label-row">
+                            <span class="text-[9px] font-bold text-slate-400">Border</span>
+                            <span id="borderWidthVal" class="val-badge text-[9px]">2px</span>
+                        </div>
+                        <input type="range" id="borderWidth" min="0" max="30" value="2" class="h-1">
                     </div>
                 </div>
             </div>
-
-            <!-- Export Buttons -->
-            <div class="pt-6 border-t border-slate-700 space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button id="btnStartRecord" class="bg-red-600 hover:bg-red-500 py-4 rounded-2xl text-sm font-black flex items-center justify-center gap-3 shadow-xl shadow-red-900/30 transition-all active:scale-95">
-                        <span class="w-3 h-3 bg-white rounded-full animate-pulse"></span> RECORD VIDEO
-                    </button>
-                    <button id="btnMagicRecord" class="bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl text-sm font-black border border-white/10 flex flex-col items-center leading-tight shadow-xl shadow-indigo-900/30 transition-all active:scale-95">
-                        <span>AUTO: 1 LOOP</span>
-                        <span class="text-[10px] opacity-70 font-bold uppercase mt-1 tracking-widest">Capture Frame</span>
-                    </button>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <button id="btnToggle" class="bg-slate-700 hover:bg-slate-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors">Hide Box</button>
-                    <button id="btnPulseOnce" class="bg-slate-700 hover:bg-slate-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors">Play Once</button>
-                    <button id="btnReset" class="bg-slate-700 hover:bg-red-900/40 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-1 tracking-widest transition-colors border border-slate-600">Reset</button>
-                    <button id="btnDownload" class="bg-emerald-700 hover:bg-emerald-600 px-2 py-3 rounded-xl text-[10px] font-black uppercase flex-[1.5] tracking-widest transition-colors shadow-lg shadow-emerald-900/20">Save PNG</button>
-                </div>
-            </div>
-
-            <button onclick="document.getElementById('imageInput').click()" class="w-full py-3.5 bg-slate-100 text-slate-900 rounded-2xl font-black text-sm hover:bg-white transition-all shadow-xl tracking-widest uppercase">Upload Plan Image</button>
-            <input type="file" id="imageInput" accept="image/*" class="hidden">
         </div>
 
         <!-- Preview Canvas -->
@@ -333,6 +372,7 @@
             boxColor: document.getElementById('boxColor'),
             boxOpacity: document.getElementById('boxOpacity'),
             boxOpacityVal: document.getElementById('boxOpacityVal'),
+            rgbaInput: document.getElementById('rgbaInput'),
             borderWidth: document.getElementById('borderWidth'),
             borderWidthVal: document.getElementById('borderWidthVal'),
             rectWidth: document.getElementById('rectWidth'),
@@ -357,19 +397,53 @@
             btnToggle: document.getElementById('btnToggle'),
             btnPulseOnce: document.getElementById('btnPulseOnce'),
             btnReset: document.getElementById('btnReset'),
-            boxLabel: document.getElementById('boxLabel')
+            boxLabel: document.getElementById('boxLabel'),
+            svgFileInput: document.getElementById('svgFileInput'),
+            svgTextInput: document.getElementById('svgTextInput'),
+            addCustomSvg: document.getElementById('addCustomSvg'),
+            bringToFront: document.getElementById('bringToFront'),
+            sendToBack: document.getElementById('sendToBack'),
+            labelColor: document.getElementById('labelColor'),
+            zIndex: document.getElementById('zIndex'),
+            zIndexVal: document.getElementById('zIndexVal'),
+            rotation: document.getElementById('rotation'),
+            rotationVal: document.getElementById('rotationVal'),
+            reuseArrow: document.getElementById('reuseArrow'),
+            reuseSvg: document.getElementById('reuseSvg')
         };
 
+        // Saved elements for reuse
+        let savedArrows = [];
+        let savedSvgs = [];
+        
         const ctx = els.recordCanvas.getContext('2d');
 
         function setActive(el) {
+            const wasAlreadyActive = activeElement === el;
             elements.forEach(e => e.classList.remove('active'));
             activeElement = el;
             activeElement.classList.add('active');
 
             const style = window.getComputedStyle(el);
-            els.boxOpacity.value = style.opacity || 1;
-            els.boxOpacityVal.textContent = parseFloat(els.boxOpacity.value).toFixed(2);
+            // Extract opacity from color (rgba) instead of element opacity
+            let extractedOpacity = 1;
+            if (el.id === 'highlight-box') {
+                const bgColor = style.backgroundColor;
+                // Try to extract alpha from rgba background color
+                const rgbaMatch = bgColor.match(/rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*([\d.]+))?\s*\)/);
+                if (rgbaMatch && rgbaMatch[1]) {
+                    extractedOpacity = parseFloat(rgbaMatch[1]);
+                }
+            } else {
+                const elementColor = style.color;
+                // Try to extract alpha from rgba color
+                const rgbaMatch = elementColor.match(/rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*([\d.]+))?\s*\)/);
+                if (rgbaMatch && rgbaMatch[1]) {
+                    extractedOpacity = parseFloat(rgbaMatch[1]);
+                }
+            }
+            els.boxOpacity.value = extractedOpacity;
+            els.boxOpacityVal.textContent = extractedOpacity.toFixed(2);
             
             els.posX.value = el.offsetLeft;
             els.posXVal.textContent = el.offsetLeft;
@@ -381,21 +455,54 @@
             els.rectHeight.value = el.offsetHeight;
             els.rectHeightVal.textContent = el.offsetHeight + 'px';
 
-            if (el.id === 'highlight-box') {
-                els.boxColor.value = rgbToHex(style.borderColor);
-                els.borderWidth.value = parseInt(style.borderWidth);
-                els.borderWidthVal.textContent = els.borderWidth.value + 'px';
-                
-                // Label Sync
-                els.fontSize.value = parseInt(els.boxLabel.style.fontSize) || 14;
-                els.fontSizeVal.textContent = els.fontSize.value + 'px';
-                els.labelInput.value = els.boxLabel.textContent;
-            } else {
-                els.boxColor.value = rgbToHex(style.color);
-                els.borderWidth.value = el.dataset.arrowSize || 2;
-                els.borderWidthVal.textContent = els.borderWidth.value + 'px';
-                els.arrowType.value = el.dataset.type || 'simple';
+            // Rotation
+            const transform = style.transform;
+            let rotation = 0;
+            if (transform && transform !== 'none') {
+                const matrix = transform.match(/matrix\((.+)\)/);
+                if (matrix) {
+                    const v = matrix[1].split(', ').map(parseFloat);
+                    rotation = Math.round(Math.atan2(v[1], v[0]) * (180 / Math.PI));
+                    if (rotation < 0) rotation += 360;
+                }
             }
+            els.rotation.value = rotation;
+            els.rotationVal.textContent = rotation + '°';
+
+            // Z-Index
+            const zIndex = parseInt(style.zIndex) || parseInt(el.style.zIndex) || 100;
+            els.zIndex.value = zIndex;
+            els.zIndexVal.textContent = zIndex;
+
+            // Only update colors if switching to a different element (not if already active)
+            if (!wasAlreadyActive) {
+                if (el.id === 'highlight-box') {
+                    const borderColor = style.borderColor;
+                    if (borderColor && borderColor !== 'rgba(0, 0, 0, 0)') {
+                        els.boxColor.value = rgbToHex(borderColor);
+                    }
+                    els.borderWidth.value = parseInt(style.borderWidth);
+                    els.borderWidthVal.textContent = els.borderWidth.value + 'px';
+                    
+                    // Label Sync
+                    els.fontSize.value = parseInt(els.boxLabel.style.fontSize) || 14;
+                    els.fontSizeVal.textContent = els.fontSize.value + 'px';
+                    els.labelInput.value = els.boxLabel.textContent;
+                    const labelColor = window.getComputedStyle(els.boxLabel).color;
+                    if (labelColor && labelColor !== 'rgba(0, 0, 0, 0)') {
+                        els.labelColor.value = rgbToHex(labelColor);
+                    }
+                } else {
+                    const elementColor = style.color;
+                    if (elementColor && elementColor !== 'rgba(0, 0, 0, 0)') {
+                        els.boxColor.value = rgbToHex(elementColor);
+                    }
+                    els.borderWidth.value = el.dataset.arrowSize || 2;
+                    els.borderWidthVal.textContent = els.borderWidth.value + 'px';
+                    els.arrowType.value = el.dataset.type || 'simple';
+                }
+            }
+            updateRgbaDisplay();
         }
 
         function rgbToHex(rgb) {
@@ -405,19 +512,279 @@
             return "#" + vals.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
         }
 
-        els.addArrow.addEventListener('click', () => {
+        function updateRgbaDisplay() {
+            if (els.rgbaInput) {
+                const hex = els.boxColor.value;
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                const a = parseFloat(els.boxOpacity.value);
+                els.rgbaInput.value = `rgba(${r},${g},${b},${a.toFixed(2)})`;
+            }
+        }
+
+        function parseRgbaInput(value) {
+            if (!value || !value.trim()) return false;
+            
+            // Try rgba/rgb format: rgba(255,0,0,0.5) or rgb(255,0,0)
+            const rgbaMatch = value.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)/i);
+            if (rgbaMatch) {
+                const r = parseInt(rgbaMatch[1]);
+                const g = parseInt(rgbaMatch[2]);
+                const b = parseInt(rgbaMatch[3]);
+                const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+                
+                // Convert RGB to hex
+                const hex = "#" + [r, g, b].map(x => {
+                    const hex = Math.min(255, Math.max(0, x)).toString(16);
+                    return hex.length === 1 ? "0" + hex : hex;
+                }).join('');
+                
+                // Update color and opacity
+                els.boxColor.value = hex;
+                els.boxOpacity.value = Math.min(1, Math.max(0, a));
+                els.boxOpacityVal.textContent = a.toFixed(2);
+                updateRgbaDisplay(); // Normalize format
+                updateSelected();
+                return true;
+            }
+            
+            // Try hex with alpha: #rrggbbaa or #rgba
+            const hexAlphaMatch = value.match(/#([0-9a-f]{8}|[0-9a-f]{4})/i);
+            if (hexAlphaMatch) {
+                const hex = hexAlphaMatch[1];
+                let r, g, b, a;
+                
+                if (hex.length === 8) {
+                    // #rrggbbaa format
+                    r = parseInt(hex.slice(0, 2), 16);
+                    g = parseInt(hex.slice(2, 4), 16);
+                    b = parseInt(hex.slice(4, 6), 16);
+                    a = parseInt(hex.slice(6, 8), 16) / 255;
+                } else if (hex.length === 4) {
+                    // #rgba format (short)
+                    r = parseInt(hex[0] + hex[0], 16);
+                    g = parseInt(hex[1] + hex[1], 16);
+                    b = parseInt(hex[2] + hex[2], 16);
+                    a = parseInt(hex[3] + hex[3], 16) / 255;
+                }
+                
+                const hexColor = "#" + [r, g, b].map(x => {
+                    const h = Math.min(255, Math.max(0, x)).toString(16);
+                    return h.length === 1 ? "0" + h : h;
+                }).join('');
+                
+                currentColor = hexColor;
+                els.boxOpacity.value = Math.min(1, Math.max(0, a));
+                els.boxOpacityVal.textContent = a.toFixed(2);
+                updateRgbaDisplay();
+                updateSelected();
+                return true;
+            }
+            
+            // Try regular hex: #rrggbb or #rgb
+            const hexMatch = value.match(/#([0-9a-f]{6}|[0-9a-f]{3})/i);
+            if (hexMatch) {
+                const hex = hexMatch[1];
+                let r, g, b;
+                
+                if (hex.length === 6) {
+                    r = parseInt(hex.slice(0, 2), 16);
+                    g = parseInt(hex.slice(2, 4), 16);
+                    b = parseInt(hex.slice(4, 6), 16);
+                } else {
+                    r = parseInt(hex[0] + hex[0], 16);
+                    g = parseInt(hex[1] + hex[1], 16);
+                    b = parseInt(hex[2] + hex[2], 16);
+                }
+                
+                const hexColor = "#" + [r, g, b].map(x => {
+                    const h = Math.min(255, Math.max(0, x)).toString(16);
+                    return h.length === 1 ? "0" + h : h;
+                }).join('');
+                
+                els.boxColor.value = hexColor;
+                // Keep existing opacity
+                updateRgbaDisplay();
+                updateSelected();
+                return true;
+            }
+            
+            return false;
+        }
+
+        const createArrow = (type, color, size) => {
             const arrow = document.createElement('div');
             arrow.className = 'draggable arrow-instance active';
             arrow.style.top = '15%';
             arrow.style.left = '15%';
-            arrow.style.color = els.boxColor.value;
-            arrow.dataset.type = els.arrowType.value;
-            arrow.dataset.arrowSize = els.borderWidth.value;
-            arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full drop-shadow-lg"><path d="${ARROW_PATHS[els.arrowType.value]}" /></svg><div class="resize-handle"></div>`;
+            arrow.style.color = color || els.boxColor.value;
+            arrow.style.zIndex = els.zIndex.value || '100';
+            arrow.dataset.type = type || els.arrowType.value;
+            arrow.dataset.arrowSize = size || els.borderWidth.value;
+            arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full drop-shadow-lg"><path d="${ARROW_PATHS[type || els.arrowType.value]}" /></svg><div class="resize-handle"></div>`;
             els.mainCanvas.appendChild(arrow);
             elements.push(arrow);
             setupDraggable(arrow);
             setActive(arrow);
+            return arrow;
+        };
+
+        els.addArrow.addEventListener('click', () => {
+            const arrow = createArrow();
+            // Save arrow template
+            savedArrows.push({
+                type: els.arrowType.value,
+                color: els.boxColor.value,
+                size: els.borderWidth.value
+            });
+        });
+
+        els.reuseArrow.addEventListener('click', () => {
+            if (savedArrows.length > 0) {
+                const last = savedArrows[savedArrows.length - 1];
+                createArrow(last.type, last.color, last.size);
+            } else {
+                createArrow(); // Create new if none saved
+            }
+        });
+
+        const addCustomSvgElement = (svgContent) => {
+            const svgDiv = document.createElement('div');
+            svgDiv.className = 'draggable arrow-instance active';
+            svgDiv.style.top = '15%';
+            svgDiv.style.left = '15%';
+            // Apply opacity to color (rgba), not element opacity
+            const rgbaColor = hexToRgba(els.boxColor.value, els.boxOpacity.value);
+            svgDiv.style.color = rgbaColor;
+            svgDiv.style.opacity = '1'; // Full element opacity, color has opacity
+            svgDiv.style.width = '60px';
+            svgDiv.style.height = '60px';
+            svgDiv.style.zIndex = '100'; // Ensure it's above background
+            svgDiv.dataset.customSvg = 'true';
+            svgDiv.dataset.svgContent = svgContent;
+            
+            // Parse and sanitize SVG content
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+            const parsedSvg = svgDoc.querySelector('svg');
+            
+            if (parsedSvg) {
+                // Extract viewBox for proper scaling
+                const viewBox = parsedSvg.getAttribute('viewBox') || '0 0 24 24';
+                parsedSvg.setAttribute('viewBox', viewBox);
+                parsedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                
+                // Remove class attributes that might interfere (like Tailwind classes)
+                parsedSvg.removeAttribute('class');
+                
+                // Update fill/stroke to currentColor if they exist, but preserve the SVG structure
+                // Only update if fill is not "none"
+                if (parsedSvg.hasAttribute('fill')) {
+                    const fillValue = parsedSvg.getAttribute('fill');
+                    if (fillValue !== 'none') {
+                        parsedSvg.setAttribute('fill', 'currentColor');
+                    }
+                }
+                // Update child elements with fill (but not if fill="none")
+                parsedSvg.querySelectorAll('[fill]').forEach(el => {
+                    const fillValue = el.getAttribute('fill');
+                    if (fillValue && fillValue !== 'none') {
+                        el.setAttribute('fill', 'currentColor');
+                    }
+                });
+                
+                // Update stroke to currentColor if stroke is used (but not if stroke="none")
+                if (parsedSvg.hasAttribute('stroke')) {
+                    const strokeValue = parsedSvg.getAttribute('stroke');
+                    if (strokeValue && strokeValue !== 'none') {
+                        parsedSvg.setAttribute('stroke', 'currentColor');
+                    }
+                }
+                // Update child elements with stroke (but not if stroke="none")
+                parsedSvg.querySelectorAll('[stroke]').forEach(el => {
+                    const strokeValue = el.getAttribute('stroke');
+                    if (strokeValue && strokeValue !== 'none') {
+                        el.setAttribute('stroke', 'currentColor');
+                    }
+                });
+                
+                // Get the SVG HTML and insert it
+                const svgHtml = parsedSvg.outerHTML;
+                svgDiv.innerHTML = svgHtml + '<div class="resize-handle"></div>';
+                
+                // Now get the actual DOM element for setting style
+                const svgElement = svgDiv.querySelector('svg');
+                if (svgElement && svgElement.style) {
+                    svgElement.style.width = '100%';
+                    svgElement.style.height = '100%';
+                }
+                
+                // Pre-load SVG as image for video recording - store the Image object directly
+                const svgData = new XMLSerializer().serializeToString(svgElement);
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+                const img = new Image();
+                img.onload = () => {
+                    // Store both the URL and the loaded Image object
+                    svgDiv.dataset.svgImageData = url;
+                    svgDiv.dataset.svgImage = 'loaded'; // Mark as loaded
+                    // Store the Image object itself for synchronous drawing
+                    svgDiv._cachedSvgImage = img;
+                };
+                img.onerror = () => {
+                    console.error('Failed to load SVG image');
+                };
+                img.src = url;
+            } else {
+                // Fallback if parsing fails
+                svgDiv.innerHTML = svgContent + '<div class="resize-handle"></div>';
+            }
+            
+            els.mainCanvas.appendChild(svgDiv);
+            elements.push(svgDiv);
+            setupDraggable(svgDiv);
+            setActive(svgDiv);
+        };
+
+        els.svgFileInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const svgContent = ev.target.result;
+                    els.svgTextInput.value = svgContent;
+                    addCustomSvgElement(svgContent);
+                    e.target.value = ''; // Reset file input
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        els.addCustomSvg.addEventListener('click', () => {
+            const svgContent = els.svgTextInput.value.trim();
+            if (svgContent) {
+                addCustomSvgElement(svgContent);
+                // Save SVG template
+                savedSvgs.push({
+                    content: svgContent,
+                    color: els.boxColor.value,
+                    opacity: els.boxOpacity.value
+                });
+                els.svgTextInput.value = ''; // Clear after adding
+            }
+        });
+
+        els.reuseSvg.addEventListener('click', () => {
+            if (savedSvgs.length > 0) {
+                const last = savedSvgs[savedSvgs.length - 1];
+                els.boxColor.value = last.color;
+                els.boxOpacity.value = last.opacity;
+                updateRgbaDisplay();
+                addCustomSvgElement(last.content);
+            } else {
+                alert('No saved SVG. Add one first.');
+            }
         });
 
         els.deleteSelected.addEventListener('click', () => {
@@ -425,6 +792,31 @@
                 activeElement.remove();
                 elements = elements.filter(e => e !== activeElement);
                 setActive(document.getElementById('highlight-box'));
+            }
+        });
+
+        els.bringToFront.addEventListener('click', () => {
+            if (activeElement && activeElement.parentElement) {
+                // Move element to the end of parent's children (top of stack)
+                activeElement.parentElement.appendChild(activeElement);
+                // Also update z-index for visual feedback
+                activeElement.style.zIndex = '1000';
+            }
+        });
+
+        els.sendToBack.addEventListener('click', () => {
+            if (activeElement && activeElement.parentElement) {
+                // Get the highlight-box as reference for back position
+                const highlightBox = document.getElementById('highlight-box');
+                if (highlightBox && activeElement.id !== 'highlight-box') {
+                    // Insert before highlight-box (but highlight-box stays at back)
+                    highlightBox.parentElement.insertBefore(activeElement, highlightBox.nextSibling);
+                    activeElement.style.zIndex = '10'; // Minimum z-index above background
+                } else {
+                    // If highlight-box is selected, just ensure it's first but still above background
+                    activeElement.parentElement.insertBefore(activeElement, activeElement.parentElement.firstChild);
+                    activeElement.style.zIndex = '5'; // Keep above background image
+                }
             }
         });
 
@@ -482,6 +874,7 @@
             const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
             
             els.boxOpacityVal.textContent = parseFloat(els.boxOpacity.value).toFixed(2);
+            updateRgbaDisplay();
             els.borderWidthVal.textContent = els.borderWidth.value + 'px';
             els.posXVal.textContent = els.posX.value;
             els.posYVal.textContent = els.posY.value;
@@ -493,27 +886,142 @@
             activeElement.style.width = els.rectWidth.value + 'px';
             activeElement.style.height = els.rectHeight.value + 'px';
 
+            // Rotation
+            const rotation = els.rotation.value;
+            els.rotationVal.textContent = rotation + '°';
+            activeElement.style.transform = `rotate(${rotation}deg)`;
+
+            // Z-Index
+            activeElement.style.zIndex = els.zIndex.value;
+            els.zIndexVal.textContent = els.zIndex.value;
+
             if (activeElement.id === 'highlight-box') {
+                // For highlight-box, apply opacity to background color (rgba), not element opacity
+                const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
                 activeElement.style.backgroundColor = rgba;
                 activeElement.style.borderColor = els.boxColor.value;
                 activeElement.style.borderWidth = `${els.borderWidth.value}px`;
+                // Ensure element opacity is 1 (full) so only color opacity applies
+                activeElement.style.opacity = '1';
+                
+                // Label color
+                els.boxLabel.style.color = els.labelColor.value;
+            } else if (activeElement.dataset.customSvg === 'true') {
+                // Custom SVG element - apply opacity to color using rgba, not element opacity
+                const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
+                activeElement.style.color = rgba;
+                // Ensure element opacity is 1 (full) so only color opacity applies
+                activeElement.style.opacity = '1';
+                const svg = activeElement.querySelector('svg');
+                if (svg) {
+                    // Update fill to currentColor only if fill is not "none"
+                    if (svg.hasAttribute('fill')) {
+                        const fillValue = svg.getAttribute('fill');
+                        if (fillValue && fillValue !== 'none') {
+                            svg.setAttribute('fill', 'currentColor');
+                        }
+                    }
+                    svg.querySelectorAll('[fill]').forEach(el => {
+                        const fillValue = el.getAttribute('fill');
+                        if (fillValue && fillValue !== 'none') {
+                            el.setAttribute('fill', 'currentColor');
+                        }
+                    });
+                    
+                    // Update stroke to currentColor only if stroke is not "none"
+                    if (svg.hasAttribute('stroke')) {
+                        const strokeValue = svg.getAttribute('stroke');
+                        if (strokeValue && strokeValue !== 'none') {
+                            svg.setAttribute('stroke', 'currentColor');
+                        }
+                    }
+                    svg.querySelectorAll('[stroke]').forEach(el => {
+                        const strokeValue = el.getAttribute('stroke');
+                        if (strokeValue && strokeValue !== 'none') {
+                            el.setAttribute('stroke', 'currentColor');
+                        }
+                    });
+                    
+                    // Also update the cached SVG for video recording
+                    if (activeElement.dataset.svgImageData) {
+                        URL.revokeObjectURL(activeElement.dataset.svgImageData);
+                        delete activeElement.dataset.svgImageData;
+                        delete activeElement._cachedSvgImage;
+                        // Re-cache the SVG with new color
+                        const svgEl = activeElement.querySelector('svg');
+                        if (svgEl) {
+                            const svgData = new XMLSerializer().serializeToString(svgEl);
+                            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                            const url = URL.createObjectURL(svgBlob);
+                            const img = new Image();
+                            img.onload = () => {
+                                activeElement.dataset.svgImageData = url;
+                                activeElement._cachedSvgImage = img;
+                            };
+                            img.src = url;
+                        }
+                    }
+                }
             } else {
-                activeElement.style.color = els.boxColor.value;
-                activeElement.style.opacity = els.boxOpacity.value;
+                // Arrow element - apply opacity to color using rgba, not element opacity
+                const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
+                activeElement.style.color = rgba;
+                // Ensure element opacity is 1 (full) so only color opacity applies
+                activeElement.style.opacity = '1';
                 activeElement.dataset.arrowSize = els.borderWidth.value;
                 activeElement.dataset.type = els.arrowType.value;
-                activeElement.querySelector('path').setAttribute('d', ARROW_PATHS[els.arrowType.value]);
+                const path = activeElement.querySelector('path');
+                if (path) {
+                    path.setAttribute('d', ARROW_PATHS[els.arrowType.value]);
+                }
             }
         };
 
-        els.boxColor.addEventListener('input', updateSelected);
-        els.boxOpacity.addEventListener('input', updateSelected);
+        els.boxColor.addEventListener('input', () => {
+            updateRgbaDisplay();
+            updateSelected();
+        });
+        els.boxOpacity.addEventListener('input', () => {
+            updateRgbaDisplay();
+            updateSelected();
+        });
+        els.rgbaInput.addEventListener('paste', (e) => {
+            // Handle paste event - parse after paste
+            setTimeout(() => {
+                const pastedValue = e.target.value;
+                if (!parseRgbaInput(pastedValue)) {
+                    // If parsing fails, restore the correct value
+                    updateRgbaDisplay();
+                }
+            }, 0);
+        });
+        els.rgbaInput.addEventListener('blur', (e) => {
+            // Parse and apply RGBA when user finishes typing
+            if (!parseRgbaInput(e.target.value)) {
+                // If parsing fails, restore the correct value
+                updateRgbaDisplay();
+            }
+        });
+        els.rgbaInput.addEventListener('keypress', (e) => {
+            // Allow Enter key to apply
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.target.blur();
+            }
+        });
         els.borderWidth.addEventListener('input', updateSelected);
         els.arrowType.addEventListener('change', updateSelected);
         els.posX.addEventListener('input', updateSelected);
         els.posY.addEventListener('input', updateSelected);
         els.rectWidth.addEventListener('input', updateSelected);
         els.rectHeight.addEventListener('input', updateSelected);
+        els.rotation.addEventListener('input', updateSelected);
+        els.zIndex.addEventListener('input', updateSelected);
+        els.labelColor.addEventListener('input', () => {
+            if (activeElement && activeElement.id === 'highlight-box') {
+                els.boxLabel.style.color = els.labelColor.value;
+            }
+        });
 
         const applyAnimClass = (className) => {
             const el = document.getElementById('highlight-box');
@@ -623,7 +1131,38 @@
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         ctx.fillText(els.boxLabel.textContent, x + w/2, y + h/2);
                     }
+                } else if (el.dataset.customSvg === 'true') {
+                    // Custom SVG element - use pre-loaded cached image
+                    const svgElement = el.querySelector('svg');
+                    if (svgElement) {
+                        // Use cached Image object if available (synchronous drawing)
+                        if (el._cachedSvgImage && el._cachedSvgImage.complete) {
+                            // Image is loaded, draw it synchronously
+                            ctx.globalAlpha = 1; // Opacity is in the color (rgba)
+                            ctx.drawImage(el._cachedSvgImage, x, y, w, h);
+                        } else {
+                            // Fallback: try to load/cache if not already cached
+                            let imgUrl = el.dataset.svgImageData;
+                            if (!imgUrl) {
+                                // Serialize SVG to data URL
+                                const svgData = new XMLSerializer().serializeToString(svgElement);
+                                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                                imgUrl = URL.createObjectURL(svgBlob);
+                                el.dataset.svgImageData = imgUrl;
+                            }
+                            
+                            // If no cached image, try to create and cache it
+                            if (!el._cachedSvgImage) {
+                                const img = new Image();
+                                img.onload = () => {
+                                    el._cachedSvgImage = img;
+                                };
+                                img.src = imgUrl;
+                            }
+                        }
+                    }
                 } else {
+                    // Arrow element
                     ctx.fillStyle = style.color;
                     const type = el.dataset.type || 'simple';
                     const pathStr = ARROW_PATHS[type];
@@ -681,5 +1220,7 @@
             document.body.classList.remove('taking-screenshot');
         });
     </script>
+</body>
+</html>
 </body>
 </html>
