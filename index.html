@@ -319,6 +319,21 @@
                             </div>
                             <input type="range" id="fps" min="15" max="60" step="1" value="30" class="h-1">
                         </div>
+                        <div class="control-group">
+                            <div class="label-row">
+                                <span class="text-[9px] font-bold text-slate-400">Video Format</span>
+                                <span id="videoFormatVal" class="val-badge text-[9px]">WebM</span>
+                            </div>
+                            <select id="videoFormat" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] outline-none cursor-pointer">
+                                <option value="webm-vp9" selected>WebM (VP9)</option>
+                                <option value="webm-vp8">WebM (VP8)</option>
+                                <option value="webm">WebM</option>
+                                <option value="mp4" id="mp4Option">MP4 (not supported)</option>
+                            </select>
+                            <div id="formatWarning" class="text-[7px] text-slate-500 pt-1 hidden">
+                                <span id="formatWarningText"></span>
+                            </div>
+                        </div>
                         <div class="text-[8px] text-slate-500 pt-1 border-t border-slate-800">
                             <div class="flex justify-between">
                                 <span>Output:</span>
@@ -485,6 +500,10 @@
             bitrateVal: document.getElementById('bitrateVal'),
             fps: document.getElementById('fps'),
             fpsVal: document.getElementById('fpsVal'),
+            videoFormat: document.getElementById('videoFormat'),
+            videoFormatVal: document.getElementById('videoFormatVal'),
+            formatWarning: document.getElementById('formatWarning'),
+            formatWarningText: document.getElementById('formatWarningText'),
             qualityInfo: document.getElementById('qualityInfo')
         };
 
@@ -1175,6 +1194,36 @@
             updateQualityInfo();
         });
 
+        // Check browser support and update MP4 option
+        const mp4Option = document.getElementById('mp4Option');
+        if (mp4Option) {
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                mp4Option.textContent = 'MP4';
+            } else {
+                mp4Option.textContent = 'MP4 (not supported)';
+                mp4Option.disabled = true;
+            }
+        }
+
+        els.videoFormat.addEventListener('change', (e) => {
+            const formatLabels = {
+                'webm-vp9': 'WebM (VP9)',
+                'webm-vp8': 'WebM (VP8)',
+                'webm': 'WebM',
+                'mp4': 'MP4'
+            };
+            const selectedFormat = e.target.value;
+            els.videoFormatVal.textContent = formatLabels[selectedFormat] || 'WebM';
+            
+            // Show warning if MP4 is selected but not supported
+            if (selectedFormat === 'mp4' && !MediaRecorder.isTypeSupported('video/mp4')) {
+                els.formatWarning.classList.remove('hidden');
+                els.formatWarningText.textContent = 'MP4 not supported by this browser. Will use WebM fallback.';
+            } else {
+                els.formatWarning.classList.add('hidden');
+            }
+        });
+
         const updateSelected = () => {
             if (!activeElement) return;
             const rgba = hexToRgba(els.boxColor.value, els.boxOpacity.value);
@@ -1596,19 +1645,46 @@
             const bitrateMbps = parseInt(els.bitrate.value);
             const bitrateBps = bitrateMbps * 1000000; // Convert Mbps to bps
             
-            const options = { 
-                mimeType: 'video/webm',
-                videoBitsPerSecond: bitrateBps
+            // Get selected video format
+            const formatValue = els.videoFormat.value;
+            let preferredMimeType = 'video/webm';
+            let fileExtension = 'webm';
+            
+            // Map format values to MIME types
+            const formatMap = {
+                'webm-vp9': 'video/webm;codecs=vp9',
+                'webm-vp8': 'video/webm;codecs=vp8',
+                'webm': 'video/webm',
+                'mp4': 'video/mp4'
             };
             
-            // Try to use bitrate if supported, fallback to default
-            let supportedMimeType = 'video/webm';
-            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-                supportedMimeType = 'video/webm;codecs=vp9';
-            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-                supportedMimeType = 'video/webm;codecs=vp8';
+            preferredMimeType = formatMap[formatValue] || 'video/webm';
+            if (formatValue === 'mp4') fileExtension = 'mp4';
+            
+            // Check browser support and find best supported format
+            let supportedMimeType = preferredMimeType;
+            if (!MediaRecorder.isTypeSupported(preferredMimeType)) {
+                // Fallback to supported formats
+                if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+                    supportedMimeType = 'video/webm;codecs=vp9';
+                    fileExtension = 'webm';
+                } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+                    supportedMimeType = 'video/webm;codecs=vp8';
+                    fileExtension = 'webm';
+                } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                    supportedMimeType = 'video/webm';
+                    fileExtension = 'webm';
+                } else {
+                    // Last resort - try default
+                    supportedMimeType = 'video/webm';
+                    fileExtension = 'webm';
+                }
             }
-            options.mimeType = supportedMimeType;
+            
+            const options = { 
+                mimeType: supportedMimeType,
+                videoBitsPerSecond: bitrateBps
+            };
             
             mediaRecorder = new MediaRecorder(stream, options);
             mediaRecorder.ondataavailable = e => {
@@ -1621,7 +1697,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); 
                 a.href = url; 
-                a.download = `plan-asset-${Date.now()}.webm`; 
+                a.download = `plan-asset-${Date.now()}.${fileExtension}`; 
                 a.click();
             };
             mediaRecorder.start(100); // Request data every 100ms for better quality
@@ -1712,6 +1788,8 @@
         els.qualityPresetVal.textContent = '1080p';
         els.bitrateVal.textContent = '10';
         els.fpsVal.textContent = '30';
+        els.videoFormatVal.textContent = 'WebM (VP9)';
+        els.videoFormatVal.textContent = 'WebM (VP9)';
 
         // Overlay management
         updateOverlaySelect();
