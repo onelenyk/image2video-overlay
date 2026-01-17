@@ -1397,9 +1397,21 @@
             let isDragging = false;
             let isResizing = false;
             let startX, startY, startW, startH, startL, startT;
-            element.addEventListener('mousedown', e => {
+            
+            // Helper function to get coordinates from mouse or touch event
+            const getCoords = (ev) => {
+                if (ev.touches && ev.touches.length > 0) {
+                    return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+                }
+                return { x: ev.clientX, y: ev.clientY };
+            };
+            
+            // Handle both mouse and touch start
+            const handleStart = (e) => {
+                e.preventDefault(); // Prevent default touch behavior
                 setActive(element);
                 const handle = element.querySelector('.resize-handle');
+                const coords = getCoords(e);
                 // Check if clicking on resize handle (or if it contains the target)
                 if (handle && (e.target === handle || handle.contains(e.target))) {
                     isResizing = true;
@@ -1407,33 +1419,59 @@
                     // Allow dragging from anywhere on the overlay (including label)
                     isDragging = true;
                 }
-                startX = e.clientX; startY = e.clientY;
-                startW = element.offsetWidth; startH = element.offsetHeight;
-                startL = element.offsetLeft; startT = element.offsetTop;
-                const onMove = ev => {
-                    if (isDragging) {
-                        const newLeft = startL + (ev.clientX - startX);
-                        const newTop = startT + (ev.clientY - startY);
-                        element.style.left = `${newLeft}px`;
-                        element.style.top = `${newTop}px`;
-                        els.posX.value = newLeft;
-                        els.posXVal.textContent = newLeft;
-                        els.posY.value = newTop;
-                        els.posYVal.textContent = newTop;
-                    } else if (isResizing) {
-                        const newWidth = startW + (ev.clientX - startX);
-                        const newHeight = startH + (ev.clientY - startY);
-                        element.style.width = `${newWidth}px`;
-                        element.style.height = `${newHeight}px`;
-                        els.rectWidth.value = newWidth;
-                        els.rectWidthVal.textContent = newWidth + 'px';
-                        els.rectHeight.value = newHeight;
-                        els.rectHeightVal.textContent = newHeight + 'px';
-                    }
-                };
-                const onEnd = () => { isDragging = isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); };
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onEnd);
+                startX = coords.x;
+                startY = coords.y;
+                startW = element.offsetWidth;
+                startH = element.offsetHeight;
+                startL = element.offsetLeft;
+                startT = element.offsetTop;
+            };
+            
+            // Handle both mouse and touch move
+            const handleMove = (ev) => {
+                const coords = getCoords(ev);
+                if (isDragging) {
+                    const newLeft = startL + (coords.x - startX);
+                    const newTop = startT + (coords.y - startY);
+                    element.style.left = `${newLeft}px`;
+                    element.style.top = `${newTop}px`;
+                    els.posX.value = newLeft;
+                    els.posXVal.textContent = newLeft;
+                    els.posY.value = newTop;
+                    els.posYVal.textContent = newTop;
+                } else if (isResizing) {
+                    const newWidth = startW + (coords.x - startX);
+                    const newHeight = startH + (coords.y - startY);
+                    element.style.width = `${newWidth}px`;
+                    element.style.height = `${newHeight}px`;
+                    els.rectWidth.value = newWidth;
+                    els.rectWidthVal.textContent = newWidth + 'px';
+                    els.rectHeight.value = newHeight;
+                    els.rectHeightVal.textContent = newHeight + 'px';
+                }
+            };
+            
+            // Handle both mouse and touch end
+            const handleEnd = () => {
+                isDragging = isResizing = false;
+                document.removeEventListener('mousemove', handleMove);
+                document.removeEventListener('mouseup', handleEnd);
+                document.removeEventListener('touchmove', handleMove);
+                document.removeEventListener('touchend', handleEnd);
+            };
+            
+            // Mouse events
+            element.addEventListener('mousedown', (e) => {
+                handleStart(e);
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+            });
+            
+            // Touch events
+            element.addEventListener('touchstart', (e) => {
+                handleStart(e);
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('touchend', handleEnd);
             });
         }
         // Setup draggable for initial overlay
