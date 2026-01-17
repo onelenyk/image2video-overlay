@@ -189,16 +189,19 @@
                         </select>
                         <div class="flex gap-1">
                             <button id="addArrow" class="flex-1 bg-green-600 hover:bg-green-500 py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
-                            <button id="reuseArrow" class="flex-1 bg-green-700 hover:bg-green-600 py-2 rounded-lg text-[9px] font-black uppercase">Reuse</button>
+                            <button id="reuseArrow" class="flex-1 bg-green-700 hover:bg-green-600 py-2 rounded-lg text-[9px] font-black uppercase">Duplicate</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="document.getElementById('svgFileInput').click()" class="bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg text-[9px] font-black uppercase">Upload SVG</button>
                         <div class="flex gap-1">
                             <button id="addCustomSvg" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
-                            <button id="reuseSvg" class="flex-1 bg-indigo-700 hover:bg-indigo-600 py-2 rounded-lg text-[9px] font-black uppercase">Reuse</button>
+                            <button id="duplicateSvg" class="flex-1 bg-indigo-700 hover:bg-indigo-600 py-2 rounded-lg text-[9px] font-black uppercase">Duplicate</button>
                         </div>
                     </div>
+                    <select id="savedSvgSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] outline-none cursor-pointer">
+                        <option value="">Select saved SVG...</option>
+                    </select>
                     <textarea id="svgTextInput" placeholder="Paste SVG..." class="w-full bg-slate-800 border border-slate-700 rounded-lg text-[9px] py-1.5 px-2 outline-none h-16 font-mono text-slate-300 placeholder-slate-500 resize-none"></textarea>
                     <input type="file" id="svgFileInput" accept=".svg,image/svg+xml" class="hidden">
                     <div class="flex gap-2 pt-1 border-t border-slate-800">
@@ -471,7 +474,8 @@
             rotation: document.getElementById('rotation'),
             rotationVal: document.getElementById('rotationVal'),
             reuseArrow: document.getElementById('reuseArrow'),
-            reuseSvg: document.getElementById('reuseSvg'),
+            duplicateSvg: document.getElementById('duplicateSvg'),
+            savedSvgSelect: document.getElementById('savedSvgSelect'),
             overlaySelect: document.getElementById('overlaySelect'),
             addOverlay: document.getElementById('addOverlay'),
             activeOverlayName: document.getElementById('activeOverlayName'),
@@ -495,6 +499,29 @@
         // Saved elements for reuse
         let savedArrows = [];
         let savedSvgs = [];
+        
+        // Function to update saved SVG dropdown
+        function updateSavedSvgDropdown() {
+            els.savedSvgSelect.innerHTML = '<option value="">Select saved SVG...</option>';
+            savedSvgs.forEach((svg, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = svg.name || `SVG ${index + 1}`;
+                els.savedSvgSelect.appendChild(option);
+            });
+        }
+        
+        // Function to save SVG with a name
+        function saveSvg(svgContent, fileName = null) {
+            const svgName = fileName || `SVG ${savedSvgs.length + 1}`;
+            savedSvgs.push({
+                name: svgName,
+                content: svgContent,
+                color: els.boxColor.value,
+                opacity: els.boxOpacity.value
+            });
+            updateSavedSvgDropdown();
+        }
         
         const ctx = els.recordCanvas.getContext('2d');
         // Enable high-quality image rendering
@@ -920,6 +947,9 @@
                     const svgContent = ev.target.result;
                     els.svgTextInput.value = svgContent;
                     addCustomSvgElement(svgContent);
+                    // Save SVG with filename
+                    const fileName = file.name.replace(/\.svg$/i, '') || `SVG ${savedSvgs.length + 1}`;
+                    saveSvg(svgContent, fileName);
                     e.target.value = ''; // Reset file input
                 };
                 reader.readAsText(file);
@@ -931,16 +961,12 @@
             if (svgContent) {
                 addCustomSvgElement(svgContent);
                 // Save SVG template
-                savedSvgs.push({
-                    content: svgContent,
-                    color: els.boxColor.value,
-                    opacity: els.boxOpacity.value
-                });
+                saveSvg(svgContent);
                 els.svgTextInput.value = ''; // Clear after adding
             }
         });
 
-        els.reuseSvg.addEventListener('click', () => {
+        els.duplicateSvg.addEventListener('click', () => {
             if (savedSvgs.length > 0) {
                 const last = savedSvgs[savedSvgs.length - 1];
                 els.boxColor.value = last.color;
@@ -949,6 +975,20 @@
                 addCustomSvgElement(last.content);
             } else {
                 alert('No saved SVG. Add one first.');
+            }
+        });
+        
+        // Handle dropdown selection
+        els.savedSvgSelect.addEventListener('change', (e) => {
+            const selectedIndex = parseInt(e.target.value);
+            if (!isNaN(selectedIndex) && savedSvgs[selectedIndex]) {
+                const selectedSvg = savedSvgs[selectedIndex];
+                els.boxColor.value = selectedSvg.color;
+                els.boxOpacity.value = selectedSvg.opacity;
+                updateRgbaDisplay();
+                addCustomSvgElement(selectedSvg.content);
+                // Reset dropdown to placeholder
+                e.target.value = '';
             }
         });
 
