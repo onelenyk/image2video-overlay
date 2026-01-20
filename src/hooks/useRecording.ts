@@ -447,29 +447,27 @@ export function useRecording() {
                   const trainX2 = x1 + (x2 - x1) * segEnd;
                   const trainY2 = y1 + (y2 - y1) * segEnd;
 
-                  // Glow effect with shadow blur (soft outer glow)
+                  // Soft glow effect - draw multiple layers to simulate CSS blur
                   if (trainSettings.glowIntensity > 0 && trainSettings.glowSize > 0) {
-                    ctx.save();
-                    ctx.globalAlpha = trainSettings.glowIntensity * 0.6;
-                    ctx.shadowColor = trainColor;
-                    ctx.shadowBlur = trainSettings.glowSize * sx * 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(trainX1, trainY1);
-                    ctx.lineTo(trainX2, trainY2);
-                    ctx.strokeStyle = trainColor;
-                    ctx.lineWidth = line.strokeWidth * sx; // Don't increase width, let shadow do the glow
-                    ctx.lineCap = "round";
-                    ctx.stroke();
-                    ctx.restore();
+                    const glowLayers = 4;
+                    for (let i = glowLayers; i >= 1; i--) {
+                      ctx.save();
+                      const layerRatio = i / glowLayers;
+                      ctx.globalAlpha = trainSettings.glowIntensity * (1 - layerRatio) * 0.5;
+                      ctx.beginPath();
+                      ctx.moveTo(trainX1, trainY1);
+                      ctx.lineTo(trainX2, trainY2);
+                      ctx.strokeStyle = trainColor;
+                      ctx.lineWidth = (line.strokeWidth + trainSettings.glowSize * layerRatio * 2) * sx;
+                      ctx.lineCap = "round";
+                      ctx.filter = `blur(${trainSettings.glowSize * layerRatio * sx}px)`;
+                      ctx.stroke();
+                      ctx.restore();
+                    }
                   }
 
-                  // Bright core (white) with subtle glow
-                  ctx.save();
-                  ctx.globalAlpha = 0.95;
-                  if (trainSettings.glowSize > 0) {
-                    ctx.shadowColor = "#ffffff";
-                    ctx.shadowBlur = 4 * sx;
-                  }
+                  // Bright core (white)
+                  ctx.globalAlpha = 0.9;
                   ctx.beginPath();
                   ctx.moveTo(trainX1, trainY1);
                   ctx.lineTo(trainX2, trainY2);
@@ -477,15 +475,14 @@ export function useRecording() {
                   ctx.lineWidth = line.strokeWidth * sx;
                   ctx.lineCap = "round";
                   ctx.stroke();
-                  ctx.restore();
 
-                  // Colored overlay (thinner, on top)
+                  // Colored overlay
                   ctx.globalAlpha = 1;
                   ctx.beginPath();
                   ctx.moveTo(trainX1, trainY1);
                   ctx.lineTo(trainX2, trainY2);
                   ctx.strokeStyle = trainColor;
-                  ctx.lineWidth = Math.max(1, (line.strokeWidth * 0.6)) * sx;
+                  ctx.lineWidth = Math.max(1, (line.strokeWidth - 1)) * sx;
                   ctx.lineCap = "round";
                   ctx.stroke();
                 } else if ((line as any).animationType === "anim-dash") {
@@ -619,29 +616,27 @@ export function useRecording() {
                   const trainStart = getPositionAtProgress(segStart);
                   const trainEnd = getPositionAtProgress(segEnd);
 
-                  // Glow effect with shadow blur (soft outer glow)
+                  // Soft glow effect - draw multiple layers to simulate CSS blur
                   if (trainSettings.glowIntensity > 0 && trainSettings.glowSize > 0) {
-                    ctx.save();
-                    ctx.globalAlpha = trainSettings.glowIntensity * 0.6;
-                    ctx.shadowColor = trainColor;
-                    ctx.shadowBlur = trainSettings.glowSize * sx * 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(trainStart.x, trainStart.y);
-                    ctx.lineTo(trainEnd.x, trainEnd.y);
-                    ctx.strokeStyle = trainColor;
-                    ctx.lineWidth = polygon.strokeWidth * sx; // Don't increase width, let shadow do the glow
-                    ctx.lineCap = "round";
-                    ctx.stroke();
-                    ctx.restore();
+                    const glowLayers = 4;
+                    for (let i = glowLayers; i >= 1; i--) {
+                      ctx.save();
+                      const layerRatio = i / glowLayers;
+                      ctx.globalAlpha = trainSettings.glowIntensity * (1 - layerRatio) * 0.5;
+                      ctx.beginPath();
+                      ctx.moveTo(trainStart.x, trainStart.y);
+                      ctx.lineTo(trainEnd.x, trainEnd.y);
+                      ctx.strokeStyle = trainColor;
+                      ctx.lineWidth = (polygon.strokeWidth + trainSettings.glowSize * layerRatio * 2) * sx;
+                      ctx.lineCap = "round";
+                      ctx.filter = `blur(${trainSettings.glowSize * layerRatio * sx}px)`;
+                      ctx.stroke();
+                      ctx.restore();
+                    }
                   }
 
-                  // Bright core (white) with subtle glow
-                  ctx.save();
-                  ctx.globalAlpha = 0.95;
-                  if (trainSettings.glowSize > 0) {
-                    ctx.shadowColor = "#ffffff";
-                    ctx.shadowBlur = 4 * sx;
-                  }
+                  // Bright core (white)
+                  ctx.globalAlpha = 0.9;
                   ctx.beginPath();
                   ctx.moveTo(trainStart.x, trainStart.y);
                   ctx.lineTo(trainEnd.x, trainEnd.y);
@@ -649,15 +644,14 @@ export function useRecording() {
                   ctx.lineWidth = polygon.strokeWidth * sx;
                   ctx.lineCap = "round";
                   ctx.stroke();
-                  ctx.restore();
 
-                  // Colored overlay (thinner, on top)
+                  // Colored overlay
                   ctx.globalAlpha = 1;
                   ctx.beginPath();
                   ctx.moveTo(trainStart.x, trainStart.y);
                   ctx.lineTo(trainEnd.x, trainEnd.y);
                   ctx.strokeStyle = trainColor;
-                  ctx.lineWidth = Math.max(1, (polygon.strokeWidth * 0.6)) * sx;
+                  ctx.lineWidth = Math.max(1, (polygon.strokeWidth - 1)) * sx;
                   ctx.lineCap = "round";
                   ctx.stroke();
                 } else if ((polygon as any).animationType === "anim-dash") {
