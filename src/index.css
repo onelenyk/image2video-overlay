@@ -116,6 +116,13 @@ body {
   animation: float-kf var(--anim-duration) infinite ease-in-out;
 }
 
+/* Line-specific animations - these are handled specially in LineElement */
+.anim-train,
+.anim-train-loop,
+.anim-dash {
+  /* These animations are rendered via SVG, not CSS transforms */
+}
+
 @keyframes pulse-kf {
   0%,
   100% {

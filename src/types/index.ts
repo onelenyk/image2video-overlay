@@ -1,3 +1,4 @@
+// Animation types
 export type AnimationType =
   | "anim-pulse"
   | "anim-bounce"
@@ -6,15 +7,22 @@ export type AnimationType =
   | "anim-flash"
   | "anim-spin"
   | "anim-zoom"
-  | "anim-float";
+  | "anim-float"
+  | "anim-train"      // Train/pulse traveling along the line path
+  | "anim-train-loop" // Train traveling in a loop (goes back)
+  | "anim-dash";      // Animated dashed line (marching ants)
 
-export type ArrowType = "simple" | "diagonal" | "right" | "curved" | "double";
-
-export type ElementType = "overlay" | "arrow" | "svg";
-
+// Position and Size
 export interface Position {
   x: number;
   y: number;
+}
+
+// Connection reference - for connecting lines to other elements
+export interface ConnectionRef {
+  elementId: string;           // ID of the element to connect to
+  vertexIndex?: number;        // For polygons: which vertex (0-based index)
+  endpoint?: "start" | "end";  // For lines: which endpoint
 }
 
 export interface Size {
@@ -22,55 +30,184 @@ export interface Size {
   height: number;
 }
 
-export interface BaseElement {
+// ============================================
+// OVERLAY TYPES
+// ============================================
+
+export type OverlayType = "rectangle" | "line" | "polygon" | "point";
+
+// Train animation settings
+export interface TrainAnimationSettings {
+  trainLength: number;      // Length of the train as a fraction of the path (0.05 to 0.5)
+  glowIntensity: number;    // Glow effect intensity (0 to 1)
+  glowSize: number;         // Glow size in pixels (0 to 20)
+  trainColor: string;       // Train color (or "inherit" to use element color)
+  fadeTrail: boolean;       // Whether to show a fading trail behind the train
+}
+
+// Default train animation settings
+export const DEFAULT_TRAIN_SETTINGS: TrainAnimationSettings = {
+  trainLength: 0.15,
+  glowIntensity: 0.3,
+  glowSize: 8,
+  trainColor: "inherit",
+  fadeTrail: false,
+};
+
+// Base properties shared by all overlays
+export interface BaseOverlay {
   id: string;
-  type: ElementType;
+  type: "overlay";
+  overlayType: OverlayType;
+  zIndex: number;
+  color: string;
+  opacity: number;
+  rotation: number;
+  // Animation (available for all overlay types)
+  animationType: AnimationType;
+  animationDuration: number;
+  animationEnabled: boolean; // Animation included in export
+  animationPreview: boolean; // Show animation on preview canvas
+  isLooping: boolean;
+  // Train animation specific settings
+  trainSettings: TrainAnimationSettings;
+}
+
+// Rectangle overlay (current overlay type)
+export interface RectangleOverlay extends BaseOverlay {
+  overlayType: "rectangle";
+  position: Position;
+  size: Size;
+  label: string;
+  showLabel: boolean;
+  labelColor: string;
+  fontSize: number;
+  borderWidth: number;
+  isHidden: boolean;
+}
+
+// Point overlay - a single draggable point
+export interface PointOverlay extends BaseOverlay {
+  overlayType: "point";
+  position: Position;
+  radius: number;
+  label: string;
+  showLabel: boolean;
+  labelColor: string;
+  fontSize: number;
+}
+
+// Line endpoint type - can be a position or a connection to another element
+export type LineEndpoint = Position | ConnectionRef;
+
+// Line overlay - connects two points or positions
+export interface LineOverlay extends BaseOverlay {
+  overlayType: "line";
+  startPoint: LineEndpoint;  // Position or connection to point/line/polygon
+  endPoint: LineEndpoint;    // Position or connection to point/line/polygon
+  strokeWidth: number;
+}
+
+// Polygon overlay - multiple vertices forming a shape
+export interface PolygonOverlay extends BaseOverlay {
+  overlayType: "polygon";
+  points: Position[];  // Array of vertex positions
+  closed: boolean;     // Whether the polygon is closed
+  strokeWidth: number;
+  fillEnabled: boolean;
+}
+
+// Union type for all overlays
+export type OverlayElement = RectangleOverlay | PointOverlay | LineOverlay | PolygonOverlay;
+
+// ============================================
+// COMPONENT TYPES
+// ============================================
+
+export type ComponentType = "image" | "drawing";
+export type ImageFormat = "svg" | "png";
+export type DrawingMode = "freehand" | "straight";
+
+// Base properties shared by all components
+export interface BaseComponent {
+  id: string;
+  type: "component";
+  componentType: ComponentType;
   position: Position;
   size: Size;
   rotation: number;
   zIndex: number;
   color: string;
   opacity: number;
-}
-
-export interface OverlayElement extends BaseElement {
-  type: "overlay";
-  label: string;
-  showLabel: boolean;
-  labelColor: string;
-  fontSize: number;
-  borderWidth: number;
+  // Animation (available for all component types)
   animationType: AnimationType;
   animationDuration: number;
-  animationEnabled: boolean;
-  isHidden: boolean;
+  animationEnabled: boolean; // Animation included in export
+  animationPreview: boolean; // Show animation on preview canvas
   isLooping: boolean;
+  // Train animation specific settings
+  trainSettings: TrainAnimationSettings;
 }
 
-export interface ArrowElement extends BaseElement {
-  type: "arrow";
-  arrowType: ArrowType;
+// Image component - SVG or PNG
+export interface ImageComponent extends BaseComponent {
+  componentType: "image";
+  content: string;      // SVG string or PNG data URL
+  format: ImageFormat;
 }
 
-export interface SvgElement extends BaseElement {
-  type: "svg";
-  svgContent: string;
-  cachedImageUrl?: string;
+// Drawing component - freehand or straight line drawing
+export interface DrawingComponent extends BaseComponent {
+  componentType: "drawing";
+  path: Position[];       // Array of points forming the path
+  drawingMode: DrawingMode;
+  strokeWidth: number;
+  smoothing: number;      // Curve smoothing for freehand (0-1)
 }
 
-export type CanvasElement = OverlayElement | ArrowElement | SvgElement;
+// Union type for all components
+export type ComponentElement = ImageComponent | DrawingComponent;
 
-export interface SavedSvg {
+// ============================================
+// CANVAS ELEMENT (all element types)
+// ============================================
+
+export type CanvasElement = OverlayElement | ComponentElement;
+
+// Helper type to check element kind
+export type ElementKind = "overlay" | "component";
+
+// ============================================
+// EDITOR STATE
+// ============================================
+
+export type EditorMode = 
+  | "select"           // Default selection/manipulation mode
+  | "draw-freehand"    // Freehand drawing mode
+  | "draw-straight"    // Straight line drawing mode
+  | "polygon-create";  // Polygon vertex creation mode
+
+// ============================================
+// SAVED TEMPLATES
+// ============================================
+
+export interface SavedImage {
   name: string;
   content: string;
+  format: ImageFormat;
   color: string;
   opacity: number;
 }
 
+// Legacy alias for compatibility
+export type SavedSvg = SavedImage;
+
+// ============================================
+// RECORDING SETTINGS
+// ============================================
+
 export type QualityPreset = "720" | "1080" | "1440" | "4k" | "native";
-
 export type VideoFormat = "webm-vp9" | "webm-vp8" | "webm" | "mp4";
-
 export type DurationMode = "animation" | "custom";
 
 export interface RecordingSettings {
@@ -79,7 +216,7 @@ export interface RecordingSettings {
   fps: number;
   videoFormat: VideoFormat;
   durationMode: DurationMode;
-  videoDuration: number; // in seconds (used when durationMode is "custom")
+  videoDuration: number;
 }
 
 export const QUALITY_PRESETS: Record<Exclude<QualityPreset, "native">, [number, number]> = {
@@ -89,10 +226,48 @@ export const QUALITY_PRESETS: Record<Exclude<QualityPreset, "native">, [number, 
   "4k": [3840, 2160],
 };
 
-export const ARROW_PATHS: Record<ArrowType, string> = {
-  simple: "M11 5V14L7.5 10.5L6 12L12 18L18 12L16.5 10.5L13 14V5H11Z",
-  diagonal: "M19 19V9L15.5 12.5L12 9L5 16L6.5 17.5L12 12L14 14L10 18L11.5 19.5L15 16V19H19Z",
-  right: "M5 13h12.5l-3.5 3.5 1.5 1.5 6-6-6-6-1.5 1.5 3.5 3.5H5v2z",
-  curved: "M20 12c0-4.4-3.6-8-8-8S4 7.6 4 12v4l-2-2-1.4 1.4L4.3 19l3.7-3.6L6.6 14l-2.6 2.6v-4.6c0-3.3 2.7-6 6-6s6 2.7 6 6H20z",
-  double: "M21 12l-4-4v3H7V8l-4 4 4 4v-3h10v3l4-4z",
-};
+// ============================================
+// TYPE GUARDS
+// ============================================
+
+export function isOverlay(element: CanvasElement): element is OverlayElement {
+  return element.type === "overlay";
+}
+
+export function isComponent(element: CanvasElement): element is ComponentElement {
+  return element.type === "component";
+}
+
+export function isRectangleOverlay(element: CanvasElement): element is RectangleOverlay {
+  return element.type === "overlay" && (element as OverlayElement).overlayType === "rectangle";
+}
+
+export function isPointOverlay(element: CanvasElement): element is PointOverlay {
+  return element.type === "overlay" && (element as OverlayElement).overlayType === "point";
+}
+
+export function isLineOverlay(element: CanvasElement): element is LineOverlay {
+  return element.type === "overlay" && (element as OverlayElement).overlayType === "line";
+}
+
+export function isPolygonOverlay(element: CanvasElement): element is PolygonOverlay {
+  return element.type === "overlay" && (element as OverlayElement).overlayType === "polygon";
+}
+
+export function isImageComponent(element: CanvasElement): element is ImageComponent {
+  return element.type === "component" && (element as ComponentElement).componentType === "image";
+}
+
+export function isDrawingComponent(element: CanvasElement): element is DrawingComponent {
+  return element.type === "component" && (element as ComponentElement).componentType === "drawing";
+}
+
+// Check if a line endpoint is a connection reference (vs a plain position)
+export function isConnectionRef(endpoint: LineEndpoint): endpoint is ConnectionRef {
+  return typeof endpoint === "object" && "elementId" in endpoint;
+}
+
+// Check if a line endpoint is a plain position
+export function isPosition(endpoint: LineEndpoint): endpoint is Position {
+  return typeof endpoint === "object" && "x" in endpoint && !("elementId" in endpoint);
+}

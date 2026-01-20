@@ -1,5 +1,15 @@
 import { useStore } from "../../store/useStore";
-import type { OverlayElement } from "../../types";
+import type { Position, Size } from "../../types";
+
+// Helper to check if element has position (not line)
+function hasPosition(element: any): element is { position: Position } {
+  return "position" in element && typeof element.position === "object" && "x" in element.position;
+}
+
+// Helper to check if element has size
+function hasSize(element: any): element is { size: Size } {
+  return "size" in element && typeof element.size === "object" && "width" in element.size;
+}
 
 export function PropertiesControl() {
   const { elements, activeElementId, updateElement } = useStore();
@@ -17,8 +27,8 @@ export function PropertiesControl() {
     );
   }
 
-  const isOverlay = activeElement.type === "overlay";
-  const overlay = isOverlay ? (activeElement as OverlayElement) : null;
+  const showSize = hasSize(activeElement);
+  const showPosition = hasPosition(activeElement);
 
   return (
     <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-700 space-y-3">
@@ -26,85 +36,89 @@ export function PropertiesControl() {
         Properties
       </label>
 
-      {/* Size */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="control-group">
-          <div className="label-row">
-            <span className="text-[9px] font-bold text-slate-400">W</span>
-            <span className="val-badge text-[9px]">{activeElement.size.width}px</span>
+      {/* Size - only for elements with size property */}
+      {showSize && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="control-group">
+            <div className="label-row">
+              <span className="text-[9px] font-bold text-slate-400">W</span>
+              <span className="val-badge text-[9px]">{(activeElement as any).size.width}px</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="500"
+              value={(activeElement as any).size.width}
+              onChange={(e) =>
+                updateElement(activeElement.id, {
+                  size: { ...(activeElement as any).size, width: parseInt(e.target.value) },
+                })
+              }
+              className="h-1"
+            />
           </div>
-          <input
-            type="range"
-            min="10"
-            max="500"
-            value={activeElement.size.width}
-            onChange={(e) =>
-              updateElement(activeElement.id, {
-                size: { ...activeElement.size, width: parseInt(e.target.value) },
-              })
-            }
-            className="h-1"
-          />
-        </div>
-        <div className="control-group">
-          <div className="label-row">
-            <span className="text-[9px] font-bold text-slate-400">H</span>
-            <span className="val-badge text-[9px]">{activeElement.size.height}px</span>
+          <div className="control-group">
+            <div className="label-row">
+              <span className="text-[9px] font-bold text-slate-400">H</span>
+              <span className="val-badge text-[9px]">{(activeElement as any).size.height}px</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="800"
+              value={(activeElement as any).size.height}
+              onChange={(e) =>
+                updateElement(activeElement.id, {
+                  size: { ...(activeElement as any).size, height: parseInt(e.target.value) },
+                })
+              }
+              className="h-1"
+            />
           </div>
-          <input
-            type="range"
-            min="10"
-            max="800"
-            value={activeElement.size.height}
-            onChange={(e) =>
-              updateElement(activeElement.id, {
-                size: { ...activeElement.size, height: parseInt(e.target.value) },
-              })
-            }
-            className="h-1"
-          />
         </div>
-      </div>
+      )}
 
-      {/* Position */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="control-group">
-          <div className="label-row">
-            <span className="text-[9px] font-bold text-slate-400">X</span>
-            <span className="val-badge text-[9px]">{activeElement.position.x.toFixed(0)}%</span>
+      {/* Position - only for elements with position property */}
+      {showPosition && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="control-group">
+            <div className="label-row">
+              <span className="text-[9px] font-bold text-slate-400">X</span>
+              <span className="val-badge text-[9px]">{(activeElement as any).position.x.toFixed(0)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={(activeElement as any).position.x}
+              onChange={(e) =>
+                updateElement(activeElement.id, {
+                  position: { ...(activeElement as any).position, x: parseFloat(e.target.value) },
+                })
+              }
+              className="h-1"
+            />
           </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={activeElement.position.x}
-            onChange={(e) =>
-              updateElement(activeElement.id, {
-                position: { ...activeElement.position, x: parseFloat(e.target.value) },
-              })
-            }
-            className="h-1"
-          />
-        </div>
-        <div className="control-group">
-          <div className="label-row">
-            <span className="text-[9px] font-bold text-slate-400">Y</span>
-            <span className="val-badge text-[9px]">{activeElement.position.y.toFixed(0)}%</span>
+          <div className="control-group">
+            <div className="label-row">
+              <span className="text-[9px] font-bold text-slate-400">Y</span>
+              <span className="val-badge text-[9px]">{(activeElement as any).position.y.toFixed(0)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={(activeElement as any).position.y}
+              onChange={(e) =>
+                updateElement(activeElement.id, {
+                  position: { ...(activeElement as any).position, y: parseFloat(e.target.value) },
+                })
+              }
+              className="h-1"
+            />
           </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={activeElement.position.y}
-            onChange={(e) =>
-              updateElement(activeElement.id, {
-                position: { ...activeElement.position, y: parseFloat(e.target.value) },
-              })
-            }
-            className="h-1"
-          />
         </div>
-      </div>
+      )}
 
       {/* Rotation */}
       <div className="control-group">
@@ -123,26 +137,6 @@ export function PropertiesControl() {
           className="h-1"
         />
       </div>
-
-      {/* Border (overlay only) */}
-      {overlay && (
-        <div className="control-group pt-1 border-t border-slate-800">
-          <div className="label-row">
-            <span className="text-[9px] font-bold text-slate-400">Border</span>
-            <span className="val-badge text-[9px]">{overlay.borderWidth}px</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="30"
-            value={overlay.borderWidth}
-            onChange={(e) =>
-              updateElement(overlay.id, { borderWidth: parseInt(e.target.value) })
-            }
-            className="h-1"
-          />
-        </div>
-      )}
     </div>
   );
 }

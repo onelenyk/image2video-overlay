@@ -1,6 +1,6 @@
 import { useStore } from "../../store/useStore";
 import { useRecording } from "../../hooks/useRecording";
-import type { VideoFormat, OverlayElement, DurationMode } from "../../types";
+import type { VideoFormat, DurationMode } from "../../types";
 
 export function RecordingControl() {
   const {
@@ -18,10 +18,9 @@ export function RecordingControl() {
 
   const { bitrate, fps, videoFormat, durationMode, videoDuration } = recordingSettings;
 
-  // Get active overlay's animation duration
+  // Get active element's animation duration (works for all types now)
   const activeElement = elements.find((el) => el.id === activeElementId);
-  const activeOverlay = activeElement?.type === "overlay" ? (activeElement as OverlayElement) : null;
-  const animationDuration = activeOverlay?.animationDuration ?? 1.5;
+  const animationDuration = (activeElement as any)?.animationDuration ?? 1.5;
 
   // Calculate effective duration based on mode
   const effectiveDuration = durationMode === "animation" ? animationDuration : videoDuration;
@@ -46,9 +45,9 @@ export function RecordingControl() {
 
   const handleAutoRecord = () => {
     if (!isRecording) {
-      // If in animation mode, enable animation on the active overlay and set it to loop
-      if (durationMode === "animation" && activeOverlay) {
-        updateElement(activeOverlay.id, { 
+      // If in animation mode, enable animation on the active element and set it to loop
+      if (durationMode === "animation" && activeElement) {
+        updateElement(activeElement.id, { 
           animationEnabled: true,
           isLooping: true 
         });

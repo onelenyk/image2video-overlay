@@ -1,15 +1,15 @@
 import { useRef, useEffect, useCallback } from "react";
-import type { OverlayElement } from "../types";
+import type { RectangleOverlay } from "../types";
 import { useStore } from "../store/useStore";
 import { hexToRgba } from "../utils/color";
 
 interface OverlayBoxProps {
-  element: OverlayElement;
+  element: RectangleOverlay;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
-  const { activeElementId, setActiveElement, updateElement } = useStore();
+  const { activeElementId, setActiveElement, updateElement, editorMode } = useStore();
   const elementRef = useRef<HTMLDivElement>(null);
   const isActive = activeElementId === element.id;
 
@@ -33,6 +33,8 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (editorMode !== "select") return;
+    
     e.preventDefault();
     e.stopPropagation();
     setActiveElement(element.id);
@@ -55,7 +57,7 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
 
     // Get current values from the store
     const state = useStore.getState();
-    const currentElement = state.elements.find(el => el.id === element.id);
+    const currentElement = state.elements.find(el => el.id === element.id) as RectangleOverlay | undefined;
     if (!currentElement) return;
 
     dragState.current.startX = coords.x;
@@ -103,7 +105,7 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
     document.addEventListener("mouseup", handleEnd);
     document.addEventListener("touchmove", handleMove, { passive: false });
     document.addEventListener("touchend", handleEnd);
-  }, [element.id, setActiveElement, updateElement, containerRef, getCoords]);
+  }, [element.id, setActiveElement, updateElement, containerRef, getCoords, editorMode]);
 
   // Update CSS variable for animation duration
   useEffect(() => {
@@ -116,7 +118,7 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
   }, [isActive, element.animationDuration]);
 
   const bgColor = hexToRgba(element.color, element.opacity);
-  const animClass = element.animationEnabled ? element.animationType : "";
+  const animClass = element.animationPreview ? element.animationType : "";
 
   return (
     <div

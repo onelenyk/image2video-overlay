@@ -1,9 +1,21 @@
 import { useRef, useCallback, useState } from "react";
 import { useStore } from "../store/useStore";
-import { ARROW_PATHS } from "../types";
-import type { OverlayElement, ArrowElement, SvgElement, AnimationType } from "../types";
+import type { 
+  OverlayElement,
+  RectangleOverlay,
+  PointOverlay,
+  LineOverlay,
+  PolygonOverlay,
+  ComponentElement,
+  ImageComponent,
+  DrawingComponent,
+  AnimationType,
+  Position,
+  LineEndpoint
+} from "../types";
 import { hexToRgba } from "../utils/color";
 import { replaceCurrentColorInSvgXml } from "../utils/svg";
+import { resolveEndpoint } from "../utils/connections";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 
 // Animation functions that return transform values based on progress (0-1)
@@ -110,6 +122,37 @@ function getAnimationState(
   return state;
 }
 
+// Catmull-Rom spline for smooth curves (same as DrawingElement)
+function drawCatmullRomSpline(
+  ctx: CanvasRenderingContext2D,
+  points: Position[],
+  tension: number = 0.5
+) {
+  if (points.length < 2) return;
+  
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    return;
+  }
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    const cp1x = p1.x + ((p2.x - p0.x) * tension) / 6;
+    const cp1y = p1.y + ((p2.y - p0.y) * tension) / 6;
+    const cp2x = p2.x - ((p3.x - p1.x) * tension) / 6;
+    const cp2y = p2.y - ((p3.y - p1.y) * tension) / 6;
+
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+}
+
 export function useRecording() {
   const {
     backgroundImage,
@@ -125,7 +168,7 @@ export function useRecording() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const animationFrameRef = useRef<number | null>(null);
-  const svgImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const recordingInfoRef = useRef<{ mimeType: string; extension: string }>({
     mimeType: "video/webm",
     extension: "webm",
@@ -156,33 +199,53 @@ export function useRecording() {
     return [1920, 1080];
   }, [backgroundImage]);
 
-  const cacheSvgImages = useCallback(async () => {
+  const cacheImages = useCallback(async () => {
     const elements = useStore.getState().elements;
-    const svgElements = elements.filter((el): el is SvgElement => el.type === "svg");
+    const imageComponents = elements.filter(
+      (el): el is ImageComponent => el.type === "component" && (el as ComponentElement).componentType === "image"
+    );
 
-    for (const svg of svgElements) {
-      if (!svgImageCacheRef.current.has(svg.id)) {
+    for (const img of imageComponents) {
+      if (!imageCacheRef.current.has(img.id)) {
         try {
-          const color = hexToRgba(svg.color, svg.opacity);
-          let svgData = svg.svgContent;
-          svgData = replaceCurrentColorInSvgXml(svgData, color);
+          if (img.format === "svg") {
+            const color = hexToRgba(img.color, img.opacity);
+            let svgData = img.content;
+            svgData = replaceCurrentColorInSvgXml(svgData, color);
 
-          const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-          const url = URL.createObjectURL(svgBlob);
+            const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
 
-          const img = new Image();
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            img.src = url;
-          });
+            const image = new Image();
+            await new Promise<void>((resolve, reject) => {
+              image.onload = () => resolve();
+              image.onerror = () => reject();
+              image.src = url;
+            });
 
-          svgImageCacheRef.current.set(svg.id, img);
+            imageCacheRef.current.set(img.id, image);
+          } else if (img.format === "png") {
+            const image = new Image();
+            await new Promise<void>((resolve, reject) => {
+              image.onload = () => resolve();
+              image.onerror = () => reject();
+              image.src = img.content;
+            });
+
+            imageCacheRef.current.set(img.id, image);
+          }
         } catch (e) {
-          console.error("Failed to cache SVG:", e);
+          console.error("Failed to cache image:", e);
         }
       }
     }
+  }, []);
+
+  // Helper to get point position (resolves connection references)
+  const getPointPosition = useCallback((pointRef: LineEndpoint): Position => {
+    const elements = useStore.getState().elements;
+    const resolved = resolveEndpoint(pointRef, elements);
+    return resolved ?? { x: 50, y: 50 };
   }, []);
 
   const renderFrame = useCallback(
@@ -210,113 +273,544 @@ export function useRecording() {
       sortedElements.forEach((element) => {
         if (element.type === "overlay") {
           const overlay = element as OverlayElement;
-          if (overlay.isHidden) return;
 
-          let x = (overlay.position.x / 100) * containerRect.width * sx;
-          let y = (overlay.position.y / 100) * containerRect.height * sy;
-          let w = overlay.size.width * sx;
-          let h = overlay.size.height * sy;
-          let opacity = overlay.opacity;
-          let additionalRotation = 0;
-
-          if (overlay.animationEnabled && overlay.animationType) {
-            const animDuration = overlay.animationDuration * 1000;
+          // Get animation state if enabled
+          let animState: AnimationState | null = null;
+          if ((overlay as any).animationEnabled && (overlay as any).animationType) {
+            const animDuration = (overlay as any).animationDuration * 1000;
             const progress = (elapsedTime % animDuration) / animDuration;
-            const animState = getAnimationState(overlay.animationType, progress, overlay.opacity);
-
-            const centerX = x + w / 2;
-            const centerY = y + h / 2;
-
-            w *= animState.scale;
-            h *= animState.scale;
-            x = centerX - w / 2;
-            y = centerY - h / 2;
-
-            x += animState.translateX * sx;
-            y += animState.translateY * sy;
-
-            opacity = animState.opacity;
-            additionalRotation = animState.rotation;
+            animState = getAnimationState((overlay as any).animationType, progress, (overlay as any).opacity || 1);
           }
 
-          ctx.save();
-          ctx.globalAlpha = opacity;
+          switch (overlay.overlayType) {
+            case "rectangle": {
+              const rect = overlay as RectangleOverlay;
+              if (rect.isHidden) return;
 
-          const totalRotation = overlay.rotation + additionalRotation;
-          if (totalRotation) {
-            ctx.translate(x + w / 2, y + h / 2);
-            ctx.rotate((totalRotation * Math.PI) / 180);
-            ctx.translate(-(x + w / 2), -(y + h / 2));
-          }
+              let x = (rect.position.x / 100) * containerRect.width * sx;
+              let y = (rect.position.y / 100) * containerRect.height * sy;
+              let w = rect.size.width * sx;
+              let h = rect.size.height * sy;
+              let opacity = rect.opacity;
+              let additionalRotation = 0;
 
-          const bgColor = hexToRgba(overlay.color, 1);
-          ctx.fillStyle = bgColor;
-          ctx.fillRect(x, y, w, h);
+              if (animState) {
+                const centerX = x + w / 2;
+                const centerY = y + h / 2;
 
-          if (overlay.borderWidth > 0) {
-            ctx.strokeStyle = overlay.color;
-            ctx.lineWidth = overlay.borderWidth * sx;
-            ctx.strokeRect(x, y, w, h);
-          }
+                w *= animState.scale;
+                h *= animState.scale;
+                x = centerX - w / 2;
+                y = centerY - h / 2;
 
-          if (overlay.showLabel && overlay.label) {
-            ctx.fillStyle = overlay.labelColor;
-            ctx.font = `bold ${overlay.fontSize * sy}px sans-serif`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(overlay.label, x + w / 2, y + h / 2);
-          }
+                x += animState.translateX * sx;
+                y += animState.translateY * sy;
 
-          ctx.restore();
-        } else if (element.type === "arrow") {
-          const arrow = element as ArrowElement;
-          const x = (arrow.position.x / 100) * containerRect.width * sx;
-          const y = (arrow.position.y / 100) * containerRect.height * sy;
-          const w = arrow.size.width * sx;
-          const h = arrow.size.height * sy;
+                opacity = animState.opacity;
+                additionalRotation = animState.rotation;
+              }
 
-          ctx.save();
-          ctx.globalAlpha = arrow.opacity;
+              ctx.save();
+              ctx.globalAlpha = opacity;
 
-          if (arrow.rotation) {
-            ctx.translate(x + w / 2, y + h / 2);
-            ctx.rotate((arrow.rotation * Math.PI) / 180);
-            ctx.translate(-(x + w / 2), -(y + h / 2));
-          }
+              const totalRotation = rect.rotation + additionalRotation;
+              if (totalRotation) {
+                ctx.translate(x + w / 2, y + h / 2);
+                ctx.rotate((totalRotation * Math.PI) / 180);
+                ctx.translate(-(x + w / 2), -(y + h / 2));
+              }
 
-          ctx.fillStyle = arrow.color;
-          const pathStr = ARROW_PATHS[arrow.arrowType];
-          const path = new Path2D(pathStr);
-          ctx.translate(x, y);
-          ctx.scale(w / 24, h / 24);
-          ctx.fill(path);
+              const bgColor = hexToRgba(rect.color, 1);
+              ctx.fillStyle = bgColor;
+              ctx.fillRect(x, y, w, h);
 
-          ctx.restore();
-        } else if (element.type === "svg") {
-          const svg = element as SvgElement;
-          const cachedImage = svgImageCacheRef.current.get(svg.id);
-          if (cachedImage && cachedImage.complete) {
-            const x = (svg.position.x / 100) * containerRect.width * sx;
-            const y = (svg.position.y / 100) * containerRect.height * sy;
-            const w = svg.size.width * sx;
-            const h = svg.size.height * sy;
+              if (rect.borderWidth > 0) {
+                ctx.strokeStyle = rect.color;
+                ctx.lineWidth = rect.borderWidth * sx;
+                ctx.strokeRect(x, y, w, h);
+              }
 
-            ctx.save();
-            ctx.globalAlpha = svg.opacity;
+              if (rect.showLabel && rect.label) {
+                ctx.fillStyle = rect.labelColor;
+                ctx.font = `bold ${rect.fontSize * sy}px sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(rect.label, x + w / 2, y + h / 2);
+              }
 
-            if (svg.rotation) {
-              ctx.translate(x + w / 2, y + h / 2);
-              ctx.rotate((svg.rotation * Math.PI) / 180);
-              ctx.translate(-(x + w / 2), -(y + h / 2));
+              ctx.restore();
+              break;
             }
 
-            ctx.drawImage(cachedImage, x, y, w, h);
-            ctx.restore();
+            case "point": {
+              const point = overlay as PointOverlay;
+              let x = (point.position.x / 100) * containerRect.width * sx;
+              let y = (point.position.y / 100) * containerRect.height * sy;
+              let radius = point.radius * sx;
+              let opacity = point.opacity;
+
+              if (animState) {
+                x += animState.translateX * sx;
+                y += animState.translateY * sy;
+                radius *= animState.scale;
+                opacity = animState.opacity;
+              }
+
+              ctx.save();
+              ctx.globalAlpha = opacity;
+
+              // Draw point circle
+              ctx.beginPath();
+              ctx.arc(x, y, radius, 0, Math.PI * 2);
+              ctx.fillStyle = point.color;
+              ctx.fill();
+              ctx.strokeStyle = "white";
+              ctx.lineWidth = 2 * sx;
+              ctx.stroke();
+
+              // Draw label
+              if (point.showLabel && point.label) {
+                ctx.fillStyle = point.labelColor;
+                ctx.font = `bold ${point.fontSize * sy}px sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                ctx.fillText(point.label, x, y + radius + 4 * sy);
+              }
+
+              ctx.restore();
+              break;
+            }
+
+            case "line": {
+              const line = overlay as LineOverlay;
+              const lineStartPos = getPointPosition(line.startPoint);
+              const lineEndPos = getPointPosition(line.endPoint);
+
+              let x1 = (lineStartPos.x / 100) * containerRect.width * sx;
+              let y1 = (lineStartPos.y / 100) * containerRect.height * sy;
+              let x2 = (lineEndPos.x / 100) * containerRect.width * sx;
+              let y2 = (lineEndPos.y / 100) * containerRect.height * sy;
+              let opacity = line.opacity;
+
+              // Check if this is a line-specific animation
+              const isTrainAnim = (line as any).animationType === "anim-train" || 
+                                  (line as any).animationType === "anim-train-loop" ||
+                                  (line as any).animationType === "anim-dash";
+
+              if (animState && !isTrainAnim) {
+                x1 += animState.translateX * sx;
+                y1 += animState.translateY * sy;
+                x2 += animState.translateX * sx;
+                y2 += animState.translateY * sy;
+                opacity = animState.opacity;
+              }
+
+              ctx.save();
+
+              // Draw the main line (dimmed for train animation)
+              ctx.globalAlpha = isTrainAnim && (line as any).animationEnabled ? opacity * 0.3 : opacity;
+              ctx.beginPath();
+              ctx.moveTo(x1, y1);
+              ctx.lineTo(x2, y2);
+              ctx.strokeStyle = line.color;
+              ctx.lineWidth = line.strokeWidth * sx;
+              ctx.lineCap = "round";
+              ctx.stroke();
+
+              // Draw train animation if enabled
+              if (isTrainAnim && (line as any).animationEnabled) {
+                const animDuration = (line as any).animationDuration * 1000;
+                let progress = (elapsedTime % animDuration) / animDuration;
+                
+                // Get train settings
+                const trainSettings = (line as any).trainSettings || {
+                  trainLength: 0.15,
+                  glowIntensity: 0.3,
+                  glowSize: 8,
+                  trainColor: "inherit",
+                };
+                const trainColor = trainSettings.trainColor === "inherit" ? line.color : trainSettings.trainColor;
+                
+                // For train-loop, make it go back and forth
+                if ((line as any).animationType === "anim-train-loop") {
+                  progress = progress < 0.5 ? progress * 2 : 2 - progress * 2;
+                }
+
+                if ((line as any).animationType === "anim-train" || (line as any).animationType === "anim-train-loop") {
+                  // Calculate train segment
+                  const halfTrain = trainSettings.trainLength / 2;
+                  const segStart = Math.max(0, progress - halfTrain);
+                  const segEnd = Math.min(1, progress + halfTrain);
+
+                  const trainX1 = x1 + (x2 - x1) * segStart;
+                  const trainY1 = y1 + (y2 - y1) * segStart;
+                  const trainX2 = x1 + (x2 - x1) * segEnd;
+                  const trainY2 = y1 + (y2 - y1) * segEnd;
+
+                  // Glow effect with shadow blur (soft outer glow)
+                  if (trainSettings.glowIntensity > 0 && trainSettings.glowSize > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = trainSettings.glowIntensity * 0.6;
+                    ctx.shadowColor = trainColor;
+                    ctx.shadowBlur = trainSettings.glowSize * sx * 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(trainX1, trainY1);
+                    ctx.lineTo(trainX2, trainY2);
+                    ctx.strokeStyle = trainColor;
+                    ctx.lineWidth = line.strokeWidth * sx; // Don't increase width, let shadow do the glow
+                    ctx.lineCap = "round";
+                    ctx.stroke();
+                    ctx.restore();
+                  }
+
+                  // Bright core (white) with subtle glow
+                  ctx.save();
+                  ctx.globalAlpha = 0.95;
+                  if (trainSettings.glowSize > 0) {
+                    ctx.shadowColor = "#ffffff";
+                    ctx.shadowBlur = 4 * sx;
+                  }
+                  ctx.beginPath();
+                  ctx.moveTo(trainX1, trainY1);
+                  ctx.lineTo(trainX2, trainY2);
+                  ctx.strokeStyle = "#ffffff";
+                  ctx.lineWidth = line.strokeWidth * sx;
+                  ctx.lineCap = "round";
+                  ctx.stroke();
+                  ctx.restore();
+
+                  // Colored overlay (thinner, on top)
+                  ctx.globalAlpha = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(trainX1, trainY1);
+                  ctx.lineTo(trainX2, trainY2);
+                  ctx.strokeStyle = trainColor;
+                  ctx.lineWidth = Math.max(1, (line.strokeWidth * 0.6)) * sx;
+                  ctx.lineCap = "round";
+                  ctx.stroke();
+                } else if ((line as any).animationType === "anim-dash") {
+                  // Marching dash animation
+                  ctx.globalAlpha = 0.8;
+                  ctx.beginPath();
+                  ctx.moveTo(x1, y1);
+                  ctx.lineTo(x2, y2);
+                  ctx.strokeStyle = "#ffffff";
+                  ctx.lineWidth = line.strokeWidth * sx;
+                  ctx.lineCap = "round";
+                  ctx.setLineDash([10 * sx, 10 * sx]);
+                  ctx.lineDashOffset = -progress * 100 * sx;
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                }
+              }
+
+              ctx.restore();
+              break;
+            }
+
+            case "polygon": {
+              const polygon = overlay as PolygonOverlay;
+              if (polygon.points.length === 0) return;
+
+              // Check if this is a line-specific animation
+              const isPolyTrainAnim = (polygon as any).animationType === "anim-train" || 
+                                      (polygon as any).animationType === "anim-train-loop" ||
+                                      (polygon as any).animationType === "anim-dash";
+
+              ctx.save();
+              
+              const translateX = (!isPolyTrainAnim && animState?.translateX) ? animState.translateX : 0;
+              const translateY = (!isPolyTrainAnim && animState?.translateY) ? animState.translateY : 0;
+
+              // Calculate points in canvas coordinates
+              const canvasPoints = polygon.points.map(p => ({
+                x: (p.x / 100) * containerRect.width * sx + translateX * sx,
+                y: (p.y / 100) * containerRect.height * sy + translateY * sy,
+              }));
+
+              // Draw fill if enabled (and not affected by train animation)
+              if (polygon.fillEnabled && polygon.closed) {
+                ctx.globalAlpha = animState?.opacity ?? polygon.opacity;
+                ctx.beginPath();
+                canvasPoints.forEach((p, i) => {
+                  if (i === 0) ctx.moveTo(p.x, p.y);
+                  else ctx.lineTo(p.x, p.y);
+                });
+                ctx.closePath();
+                ctx.fillStyle = hexToRgba(polygon.color, 1);
+                ctx.fill();
+              }
+
+              // Draw strokes (dimmed for train animation)
+              ctx.globalAlpha = isPolyTrainAnim && (polygon as any).animationEnabled 
+                ? (polygon.opacity * 0.3) 
+                : (animState?.opacity ?? polygon.opacity);
+              
+              ctx.beginPath();
+              canvasPoints.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+              });
+              if (polygon.closed) ctx.closePath();
+
+              ctx.strokeStyle = polygon.color;
+              ctx.lineWidth = polygon.strokeWidth * sx;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.stroke();
+
+              // Draw train animation if enabled
+              if (isPolyTrainAnim && (polygon as any).animationEnabled && polygon.points.length >= 2) {
+                const animDuration = (polygon as any).animationDuration * 1000;
+                let progress = (elapsedTime % animDuration) / animDuration;
+                
+                // Get train settings
+                const trainSettings = (polygon as any).trainSettings || {
+                  trainLength: 0.15,
+                  glowIntensity: 0.3,
+                  glowSize: 8,
+                  trainColor: "inherit",
+                };
+                const trainColor = trainSettings.trainColor === "inherit" ? polygon.color : trainSettings.trainColor;
+                
+                // For train-loop, make it go back and forth
+                if ((polygon as any).animationType === "anim-train-loop") {
+                  progress = progress < 0.5 ? progress * 2 : 2 - progress * 2;
+                }
+
+                // Calculate total path length
+                let totalLength = 0;
+                const pointsToTraverse = [...canvasPoints];
+                if (polygon.closed && canvasPoints.length >= 3) {
+                  pointsToTraverse.push(canvasPoints[0]);
+                }
+                
+                const segmentLengths: number[] = [];
+                for (let i = 0; i < pointsToTraverse.length - 1; i++) {
+                  const dx = pointsToTraverse[i + 1].x - pointsToTraverse[i].x;
+                  const dy = pointsToTraverse[i + 1].y - pointsToTraverse[i].y;
+                  const len = Math.sqrt(dx * dx + dy * dy);
+                  segmentLengths.push(len);
+                  totalLength += len;
+                }
+
+                // Get position at progress
+                const getPositionAtProgress = (prog: number) => {
+                  const targetDist = prog * totalLength;
+                  let accDist = 0;
+                  for (let i = 0; i < segmentLengths.length; i++) {
+                    if (accDist + segmentLengths[i] >= targetDist) {
+                      const t = (targetDist - accDist) / segmentLengths[i];
+                      return {
+                        x: pointsToTraverse[i].x + (pointsToTraverse[i + 1].x - pointsToTraverse[i].x) * t,
+                        y: pointsToTraverse[i].y + (pointsToTraverse[i + 1].y - pointsToTraverse[i].y) * t,
+                      };
+                    }
+                    accDist += segmentLengths[i];
+                  }
+                  return pointsToTraverse[pointsToTraverse.length - 1];
+                };
+
+                if ((polygon as any).animationType === "anim-train" || (polygon as any).animationType === "anim-train-loop") {
+                  const halfTrain = trainSettings.trainLength / 2;
+                  const segStart = Math.max(0, progress - halfTrain);
+                  const segEnd = Math.min(1, progress + halfTrain);
+
+                  const trainStart = getPositionAtProgress(segStart);
+                  const trainEnd = getPositionAtProgress(segEnd);
+
+                  // Glow effect with shadow blur (soft outer glow)
+                  if (trainSettings.glowIntensity > 0 && trainSettings.glowSize > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = trainSettings.glowIntensity * 0.6;
+                    ctx.shadowColor = trainColor;
+                    ctx.shadowBlur = trainSettings.glowSize * sx * 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(trainStart.x, trainStart.y);
+                    ctx.lineTo(trainEnd.x, trainEnd.y);
+                    ctx.strokeStyle = trainColor;
+                    ctx.lineWidth = polygon.strokeWidth * sx; // Don't increase width, let shadow do the glow
+                    ctx.lineCap = "round";
+                    ctx.stroke();
+                    ctx.restore();
+                  }
+
+                  // Bright core (white) with subtle glow
+                  ctx.save();
+                  ctx.globalAlpha = 0.95;
+                  if (trainSettings.glowSize > 0) {
+                    ctx.shadowColor = "#ffffff";
+                    ctx.shadowBlur = 4 * sx;
+                  }
+                  ctx.beginPath();
+                  ctx.moveTo(trainStart.x, trainStart.y);
+                  ctx.lineTo(trainEnd.x, trainEnd.y);
+                  ctx.strokeStyle = "#ffffff";
+                  ctx.lineWidth = polygon.strokeWidth * sx;
+                  ctx.lineCap = "round";
+                  ctx.stroke();
+                  ctx.restore();
+
+                  // Colored overlay (thinner, on top)
+                  ctx.globalAlpha = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(trainStart.x, trainStart.y);
+                  ctx.lineTo(trainEnd.x, trainEnd.y);
+                  ctx.strokeStyle = trainColor;
+                  ctx.lineWidth = Math.max(1, (polygon.strokeWidth * 0.6)) * sx;
+                  ctx.lineCap = "round";
+                  ctx.stroke();
+                } else if ((polygon as any).animationType === "anim-dash") {
+                  // Marching dash animation
+                  ctx.globalAlpha = 0.8;
+                  ctx.beginPath();
+                  canvasPoints.forEach((p, i) => {
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                  });
+                  if (polygon.closed) ctx.closePath();
+                  ctx.strokeStyle = "#ffffff";
+                  ctx.lineWidth = polygon.strokeWidth * sx;
+                  ctx.lineCap = "round";
+                  ctx.lineJoin = "round";
+                  ctx.setLineDash([10 * sx, 10 * sx]);
+                  ctx.lineDashOffset = -progress * 100 * sx;
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                }
+              }
+
+              ctx.restore();
+              break;
+            }
+          }
+        } else if (element.type === "component") {
+          const component = element as ComponentElement;
+
+          // Get animation state if enabled
+          let animState: AnimationState | null = null;
+          if ((component as any).animationEnabled && (component as any).animationType) {
+            const animDuration = (component as any).animationDuration * 1000;
+            const progress = (elapsedTime % animDuration) / animDuration;
+            animState = getAnimationState((component as any).animationType, progress, (component as any).opacity || 1);
+          }
+
+          switch (component.componentType) {
+            case "image": {
+              const img = component as ImageComponent;
+              const cachedImage = imageCacheRef.current.get(img.id);
+              if (cachedImage && cachedImage.complete) {
+                let x = (img.position.x / 100) * containerRect.width * sx;
+                let y = (img.position.y / 100) * containerRect.height * sy;
+                let w = img.size.width * sx;
+                let h = img.size.height * sy;
+                let opacity = img.opacity;
+                let additionalRotation = 0;
+
+                if (animState) {
+                  const centerX = x + w / 2;
+                  const centerY = y + h / 2;
+
+                  w *= animState.scale;
+                  h *= animState.scale;
+                  x = centerX - w / 2;
+                  y = centerY - h / 2;
+
+                  x += animState.translateX * sx;
+                  y += animState.translateY * sy;
+
+                  opacity = animState.opacity;
+                  additionalRotation = animState.rotation;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = opacity;
+
+                const totalRotation = img.rotation + additionalRotation;
+                if (totalRotation) {
+                  ctx.translate(x + w / 2, y + h / 2);
+                  ctx.rotate((totalRotation * Math.PI) / 180);
+                  ctx.translate(-(x + w / 2), -(y + h / 2));
+                }
+
+                ctx.drawImage(cachedImage, x, y, w, h);
+                ctx.restore();
+              }
+              break;
+            }
+
+            case "drawing": {
+              const drawing = component as DrawingComponent;
+              if (drawing.path.length < 2) return;
+
+              let x = (drawing.position.x / 100) * containerRect.width * sx;
+              let y = (drawing.position.y / 100) * containerRect.height * sy;
+              let w = drawing.size.width * sx;
+              let h = drawing.size.height * sy;
+              let opacity = drawing.opacity;
+              let additionalRotation = 0;
+
+              if (animState) {
+                const centerX = x + w / 2;
+                const centerY = y + h / 2;
+
+                w *= animState.scale;
+                h *= animState.scale;
+                x = centerX - w / 2;
+                y = centerY - h / 2;
+
+                x += animState.translateX * sx;
+                y += animState.translateY * sy;
+
+                opacity = animState.opacity;
+                additionalRotation = animState.rotation;
+              }
+
+              ctx.save();
+              ctx.globalAlpha = opacity;
+
+              const totalRotation = drawing.rotation + additionalRotation;
+              if (totalRotation) {
+                ctx.translate(x + w / 2, y + h / 2);
+                ctx.rotate((totalRotation * Math.PI) / 180);
+                ctx.translate(-(x + w / 2), -(y + h / 2));
+              }
+
+              // Transform path points to canvas coordinates
+              const scaleX = w / drawing.size.width;
+              const scaleY = h / drawing.size.height;
+              const transformedPoints = drawing.path.map((p) => ({
+                x: x + p.x * scaleX,
+                y: y + p.y * scaleY,
+              }));
+
+              if (drawing.drawingMode === "freehand") {
+                drawCatmullRomSpline(ctx, transformedPoints, drawing.smoothing * 3);
+              } else {
+                ctx.beginPath();
+                transformedPoints.forEach((p, i) => {
+                  if (i === 0) {
+                    ctx.moveTo(p.x, p.y);
+                  } else {
+                    ctx.lineTo(p.x, p.y);
+                  }
+                });
+              }
+
+              ctx.strokeStyle = drawing.color;
+              ctx.lineWidth = drawing.strokeWidth * sx;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.stroke();
+
+              ctx.restore();
+              break;
+            }
           }
         }
       });
     },
-    [backgroundImage]
+    [backgroundImage, getPointPosition]
   );
 
   // Check if WebCodecs API is available for MP4 encoding
@@ -333,7 +827,7 @@ export function useRecording() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    await cacheSvgImages();
+    await cacheImages();
 
     const canvasWrapper = document.getElementById("canvas-wrapper");
     if (!canvasWrapper) return;
@@ -480,7 +974,7 @@ export function useRecording() {
 
       animate();
     }
-  }, [getCanvas, getCanvasSize, recordingSettings, renderFrame, setIsRecording, cacheSvgImages, isWebCodecsSupported]);
+  }, [getCanvas, getCanvasSize, recordingSettings, renderFrame, setIsRecording, cacheImages, isWebCodecsSupported]);
 
   const stopRecording = useCallback(async () => {
     if (animationFrameRef.current) {

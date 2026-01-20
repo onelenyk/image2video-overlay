@@ -1,7 +1,6 @@
 import { useStore } from "../store/useStore";
 import {
   OverlayControl,
-  LabelControl,
   ElementsControl,
   ImageControl,
   AnimationControl,
@@ -26,7 +25,6 @@ export function ControlPanel() {
 
       <div className="space-y-3">
         <OverlayControl />
-        <LabelControl />
         <ElementsControl />
         <ImageControl />
         <AnimationControl />
