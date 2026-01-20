@@ -1,40 +1,73 @@
-# Plan Highlighter Pro - Video Asset Creator
+# React + TypeScript + Vite
 
-A web-based tool for creating animated video assets from floor plans. Add highlight boxes, arrows, labels, and animations to your plans, then export as images or videos.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Features
+Currently, two official plugins are available:
 
-- **Label Customization**: Add text labels with adjustable font size
-- **Visual Styling**: Customize box color, opacity, border thickness
-- **Size & Position**: Full control over dimensions and placement
-- **Arrow Manager**: Add multiple arrow types (simple, diagonal, curved, double-headed)
-- **Animations**: 8 animation types (pulse, bounce, fade, shake, flash, spin, zoom, float)
-- **Export Options**:
-  - Record video with custom animations
-  - Auto-capture single animation loop
-  - Export as PNG image
-- **Drag & Drop**: Interactive canvas with draggable elements
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Usage
+## React Compiler
 
-1. Open `index.html` in your web browser (double-click or drag into browser)
-2. Click "Upload Plan Image" to load your floor plan
-3. Customize the highlight box using the controls panel
-4. Add arrows and apply animations as needed
-5. Export your creation as a PNG or record a video
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Technical Details
+## Expanding the ESLint configuration
 
-- Single HTML file with embedded CSS and JavaScript
-- Uses Tailwind CSS (via CDN) for styling
-- html2canvas for PNG export
-- MediaRecorder API for video recording
-- Optimized for 9:16 aspect ratio (vertical video)
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Hosting
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-This is a static HTML file and can be hosted on:
-- Netlify (drag-and-drop)
-- Vercel
-- GitHub Pages
-- Any static file hosting service
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
