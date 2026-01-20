@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/videomari/', // GitHub Pages base path (change to your repo name)
+  base: '/image2video-overlay/', // GitHub Pages base path
 })
