@@ -22,7 +22,6 @@ export function OverlayControl() {
     createLine,
     updateElement,
     setEditorMode,
-    getPoints,
     connectLineEndpoint,
     disconnectLineEndpoint,
   } = useStore();
@@ -30,7 +29,6 @@ export function OverlayControl() {
   const overlays = elements.filter((el): el is OverlayElement => el.type === "overlay");
   const activeElement = elements.find((el) => el.id === activeElementId);
   const activeOverlay = activeElement?.type === "overlay" ? (activeElement as OverlayElement) : null;
-  const points = getPoints();
   
   // Get all connectable points for lines
   const connectablePoints = findConnectablePoints(elements, activeElementId || undefined);

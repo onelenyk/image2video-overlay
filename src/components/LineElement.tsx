@@ -230,16 +230,6 @@ export function LineElement({ element, containerRef }: LineElementProps) {
   const isLineAnim = isLineAnimation(element.animationType);
   const animClass = element.animationPreview && !isLineAnim ? element.animationType : "";
 
-  // Calculate train position along the line
-  const trainPosition = useMemo(() => {
-    if (!isLineAnim || !element.animationPreview) return null;
-    
-    return {
-      x: startPos.x + (endPos.x - startPos.x) * trainProgress,
-      y: startPos.y + (endPos.y - startPos.y) * trainProgress,
-    };
-  }, [isLineAnim, element.animationPreview, startPos, endPos, trainProgress]);
-
   // Get train settings (with defaults)
   const trainSettings = element.trainSettings || {
     trainLength: 0.15,
@@ -418,7 +408,6 @@ export function LineElement({ element, containerRef }: LineElementProps) {
           strokeWidth={2}
           className="pointer-events-auto cursor-pointer"
           onDoubleClick={(e) => handleDoubleClick(e, "start")}
-          title="Double-click to disconnect"
         />
       )}
       {isActive && isConnected(element.endPoint) && (
@@ -432,7 +421,6 @@ export function LineElement({ element, containerRef }: LineElementProps) {
           strokeWidth={2}
           className="pointer-events-auto cursor-pointer"
           onDoubleClick={(e) => handleDoubleClick(e, "end")}
-          title="Double-click to disconnect"
         />
       )}
 

@@ -504,7 +504,6 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
               onMouseDown={(e) => handleMouseDown(e, index)}
               onTouchStart={(e) => handleMouseDown(e, index)}
               onDoubleClick={(e) => handleVertexDoubleClick(e, index)}
-              title={element.points.length > 2 ? "Double-click to remove" : ""}
             />
             {/* Vertex index label */}
             <text
