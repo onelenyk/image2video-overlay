@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# Plan Highlighter Pro
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A powerful web-based tool for creating animated video overlays from floor plans and images. Perfect for real estate presentations, architectural walkthroughs, and property showcases.
 
-Currently, two official plugins are available:
+**[Live Demo](https://onelenyk.github.io/image2video-overlay/)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+### Overlay Elements
+- **Rectangle** - Highlight zones with customizable labels, colors, and borders
+- **Line** - Draw lines that can connect to other elements
+- **Polygon/Polyline** - Create complex shapes with editable vertices
+- **Point** - Add connection points for lines
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Drawing Tools
+- **Freehand Drawing** - Draw natural curves and paths
+- **Straight Line** - Create precise straight lines
 
-## Expanding the ESLint configuration
+### Components
+- **SVG Images** - Import and position SVG graphics
+- **PNG Images** - Add raster images with transparency
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Animations
+- **Transform Animations** - Pulse, Bounce, Fade, Shake, Flash, Spin, Zoom, Float
+- **Path Animations** - Train (one-way/loop), Marching Dash
+- **Customizable Settings** - Duration, glow intensity, train length, colors
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Export
+- **Video Recording** - Export as MP4 or WebM
+- **PNG Screenshot** - Save current state as image
+- **Configurable Quality** - Bitrate, frame rate, resolution
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS
+- Zustand (state management)
+- html2canvas + MediaRecorder API (video export)
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Deployment
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The app automatically deploys to GitHub Pages on push to `master` or `react-migration` branches.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## License
+
+MIT
