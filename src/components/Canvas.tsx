@@ -491,48 +491,53 @@ export function Canvas() {
 
       {/* Scrollable container for zoomed canvas */}
       <div 
-        className="canvas-scroll-container overflow-auto max-h-[70vh]"
+        className="canvas-scroll-container overflow-auto"
         style={{ 
-          maxWidth: zoom > 1 ? '90vw' : undefined,
+          maxHeight: '70vh',
+          maxWidth: '90vw',
         }}
       >
         <div
-          className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
-          id="canvas-wrapper"
-          style={{ 
-            aspectRatio,
+          style={{
             transform: `scale(${zoom})`,
-            transformOrigin: 'top center',
-            marginBottom: zoom > 1 ? `${(zoom - 1) * 100}%` : undefined,
+            transformOrigin: 'top left',
+            width: `${100 / zoom}%`,
+            height: 'fit-content',
           }}
         >
-          {backgroundImage && (
-            <div id="size-badge">
-              {backgroundImage.width} x {backgroundImage.height}
-            </div>
-          )}
           <div
-            id="main-canvas"
-            ref={canvasRef}
-            style={{
-              backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
-            }}
-            onClick={handleCanvasClick}
-            onDoubleClick={handleCanvasDoubleClick}
-            onMouseDown={handleDrawStart}
-            onMouseMove={handleDrawMove}
-            onMouseUp={handleDrawEnd}
-            onMouseLeave={handleDrawEnd}
-            onTouchStart={handleDrawStart}
-            onTouchMove={handleDrawMove}
-            onTouchEnd={handleDrawEnd}
+            className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
+            id="canvas-wrapper"
+            style={{ aspectRatio }}
           >
-            {elements
-              .sort((a, b) => a.zIndex - b.zIndex)
-              .map(renderElement)}
-            
-            {renderDrawingPreview()}
-            {renderPolygonPreview()}
+            {backgroundImage && (
+              <div id="size-badge">
+                {backgroundImage.width} x {backgroundImage.height}
+              </div>
+            )}
+            <div
+              id="main-canvas"
+              ref={canvasRef}
+              style={{
+                backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
+              }}
+              onClick={handleCanvasClick}
+              onDoubleClick={handleCanvasDoubleClick}
+              onMouseDown={handleDrawStart}
+              onMouseMove={handleDrawMove}
+              onMouseUp={handleDrawEnd}
+              onMouseLeave={handleDrawEnd}
+              onTouchStart={handleDrawStart}
+              onTouchMove={handleDrawMove}
+              onTouchEnd={handleDrawEnd}
+            >
+              {elements
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map(renderElement)}
+              
+              {renderDrawingPreview()}
+              {renderPolygonPreview()}
+            </div>
           </div>
         </div>
       </div>
