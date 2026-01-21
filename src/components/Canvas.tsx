@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, useEffect } from "react";
+import { useRef, useCallback, useMemo, useEffect, useState } from "react";
 import { useStore } from "../store/useStore";
 import { OverlayBox } from "./OverlayBox";
 import { PointElement } from "./PointElement";
@@ -17,6 +17,9 @@ import type {
   ImageComponent,
   DrawingComponent,
 } from "../types";
+
+const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+const DEFAULT_ZOOM_INDEX = 2; // 1x
 
 export function Canvas() {
   const { 
@@ -40,10 +43,30 @@ export function Canvas() {
   } = useStore();
   const canvasRef = useRef<HTMLDivElement>(null);
   const isDrawing = useRef(false);
+  
+  // Zoom state
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const zoom = ZOOM_LEVELS[zoomIndex];
 
   const aspectRatio = backgroundImage
     ? `${backgroundImage.width} / ${backgroundImage.height}`
     : "9/16";
+  
+  // Zoom controls
+  const canZoomIn = zoomIndex < ZOOM_LEVELS.length - 1;
+  const canZoomOut = zoomIndex > 0;
+  
+  const handleZoomIn = useCallback(() => {
+    if (canZoomIn) setZoomIndex(i => i + 1);
+  }, [canZoomIn]);
+  
+  const handleZoomOut = useCallback(() => {
+    if (canZoomOut) setZoomIndex(i => i - 1);
+  }, [canZoomOut]);
+  
+  const handleResetZoom = useCallback(() => {
+    setZoomIndex(DEFAULT_ZOOM_INDEX);
+  }, []);
 
   // Get the active polygon being created
   const activePolygon = useMemo(() => {
@@ -345,11 +368,11 @@ export function Canvas() {
           <circle
             cx={`${points[0].x}%`}
             cy={`${points[0].y}%`}
-            r={18}
+            r={12}
             fill="none"
             stroke="#10b981"
-            strokeWidth={3}
-            strokeDasharray="8,4"
+            strokeWidth={2}
+            strokeDasharray="6,3"
             className="animate-pulse"
           />
         )}
@@ -360,17 +383,17 @@ export function Canvas() {
             <circle
               cx={`${point.x}%`}
               cy={`${point.y}%`}
-              r={12}
+              r={6}
               fill="#8b5cf6"
               stroke="white"
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
             <text
               x={`${point.x}%`}
               y={`${point.y}%`}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize="12"
+              fontSize="8"
               fontWeight="bold"
               fill="white"
             >
@@ -435,38 +458,82 @@ export function Canvas() {
         </div>
       )}
 
-      <div
-        className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
-        id="canvas-wrapper"
-        style={{ aspectRatio }}
-      >
-        {backgroundImage && (
-          <div id="size-badge">
-            {backgroundImage.width} x {backgroundImage.height}
-          </div>
-        )}
-        <div
-          id="main-canvas"
-          ref={canvasRef}
-          style={{
-            backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
-          }}
-          onClick={handleCanvasClick}
-          onDoubleClick={handleCanvasDoubleClick}
-          onMouseDown={handleDrawStart}
-          onMouseMove={handleDrawMove}
-          onMouseUp={handleDrawEnd}
-          onMouseLeave={handleDrawEnd}
-          onTouchStart={handleDrawStart}
-          onTouchMove={handleDrawMove}
-          onTouchEnd={handleDrawEnd}
+      {/* Zoom controls */}
+      <div className="mb-2 flex items-center gap-1 bg-slate-800/90 px-2 py-1 rounded-lg border border-slate-700">
+        <button
+          onClick={handleZoomOut}
+          disabled={!canZoomOut}
+          className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Zoom out"
         >
-          {elements
-            .sort((a, b) => a.zIndex - b.zIndex)
-            .map(renderElement)}
-          
-          {renderDrawingPreview()}
-          {renderPolygonPreview()}
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+          </svg>
+        </button>
+        <button
+          onClick={handleResetZoom}
+          className="px-2 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors min-w-[45px]"
+          title="Reset zoom"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          onClick={handleZoomIn}
+          disabled={!canZoomIn}
+          className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Zoom in"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Scrollable container for zoomed canvas */}
+      <div 
+        className="canvas-scroll-container overflow-auto max-h-[70vh]"
+        style={{ 
+          maxWidth: zoom > 1 ? '90vw' : undefined,
+        }}
+      >
+        <div
+          className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
+          id="canvas-wrapper"
+          style={{ 
+            aspectRatio,
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top center',
+            marginBottom: zoom > 1 ? `${(zoom - 1) * 100}%` : undefined,
+          }}
+        >
+          {backgroundImage && (
+            <div id="size-badge">
+              {backgroundImage.width} x {backgroundImage.height}
+            </div>
+          )}
+          <div
+            id="main-canvas"
+            ref={canvasRef}
+            style={{
+              backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
+            }}
+            onClick={handleCanvasClick}
+            onDoubleClick={handleCanvasDoubleClick}
+            onMouseDown={handleDrawStart}
+            onMouseMove={handleDrawMove}
+            onMouseUp={handleDrawEnd}
+            onMouseLeave={handleDrawEnd}
+            onTouchStart={handleDrawStart}
+            onTouchMove={handleDrawMove}
+            onTouchEnd={handleDrawEnd}
+          >
+            {elements
+              .sort((a, b) => a.zIndex - b.zIndex)
+              .map(renderElement)}
+            
+            {renderDrawingPreview()}
+            {renderPolygonPreview()}
+          </div>
         </div>
       </div>
       <div className="canvas-info-overlay mt-6 flex flex-col items-center gap-2 text-center">

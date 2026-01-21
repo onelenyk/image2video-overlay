@@ -427,11 +427,11 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
           <circle
             cx={`${midpoint.x}%`}
             cy={`${midpoint.y}%`}
-            r={hoveredEdge === midpoint.edgeIndex ? 8 : 6}
+            r={hoveredEdge === midpoint.edgeIndex ? 5 : 4}
             fill={hoveredEdge === midpoint.edgeIndex ? "#22c55e" : "#64748b"}
             fillOpacity={hoveredEdge === midpoint.edgeIndex ? 0.8 : 0.4}
             stroke={hoveredEdge === midpoint.edgeIndex ? "#22c55e" : "#94a3b8"}
-            strokeWidth={2}
+            strokeWidth={1}
             className="pointer-events-auto cursor-pointer"
             onMouseEnter={() => setHoveredEdge(midpoint.edgeIndex)}
             onMouseLeave={() => setHoveredEdge(null)}
@@ -441,21 +441,21 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
           {hoveredEdge === midpoint.edgeIndex && (
             <>
               <line
-                x1={`calc(${midpoint.x}% - 4px)`}
+                x1={`calc(${midpoint.x}% - 3px)`}
                 y1={`${midpoint.y}%`}
-                x2={`calc(${midpoint.x}% + 4px)`}
+                x2={`calc(${midpoint.x}% + 3px)`}
                 y2={`${midpoint.y}%`}
                 stroke="white"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 className="pointer-events-none"
               />
               <line
                 x1={`${midpoint.x}%`}
-                y1={`calc(${midpoint.y}% - 4px)`}
+                y1={`calc(${midpoint.y}% - 3px)`}
                 x2={`${midpoint.x}%`}
-                y2={`calc(${midpoint.y}% + 4px)`}
+                y2={`calc(${midpoint.y}% + 3px)`}
                 stroke="white"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 className="pointer-events-none"
               />
             </>
@@ -471,10 +471,10 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
             <circle
               cx={`${point.x}%`}
               cy={`${point.y}%`}
-              r={8}
+              r={5}
               fill="white"
               stroke={element.color}
-              strokeWidth={2}
+              strokeWidth={1.5}
               className="pointer-events-auto cursor-grab"
               onMouseDown={(e) => handleMouseDown(e, index)}
               onTouchStart={(e) => handleMouseDown(e, index)}
@@ -486,7 +486,7 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
               y={`${point.y}%`}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize="10"
+              fontSize="7"
               fontWeight="bold"
               fill={element.color}
               className="pointer-events-none select-none"
@@ -501,11 +501,11 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
         <circle
           cx={`${element.points[0].x}%`}
           cy={`${element.points[0].y}%`}
-          r={14}
+          r={10}
           fill="none"
           stroke="#10b981"
-          strokeWidth={2}
-          strokeDasharray="6,4"
+          strokeWidth={1.5}
+          strokeDasharray="4,3"
           className="pointer-events-none animate-pulse"
         />
       )}
