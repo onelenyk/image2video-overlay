@@ -18,8 +18,8 @@ import type {
   DrawingComponent,
 } from "../types";
 
-const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
-const DEFAULT_ZOOM_INDEX = 2; // 1x
+const ZOOM_LEVELS = [1, 1.5, 2, 2.5, 3, 4];
+const DEFAULT_ZOOM_INDEX = 0;
 
 export function Canvas() {
   const { 
@@ -52,21 +52,8 @@ export function Canvas() {
     ? `${backgroundImage.width} / ${backgroundImage.height}`
     : "9/16";
   
-  // Zoom controls
   const canZoomIn = zoomIndex < ZOOM_LEVELS.length - 1;
   const canZoomOut = zoomIndex > 0;
-  
-  const handleZoomIn = useCallback(() => {
-    if (canZoomIn) setZoomIndex(i => i + 1);
-  }, [canZoomIn]);
-  
-  const handleZoomOut = useCallback(() => {
-    if (canZoomOut) setZoomIndex(i => i - 1);
-  }, [canZoomOut]);
-  
-  const handleResetZoom = useCallback(() => {
-    setZoomIndex(DEFAULT_ZOOM_INDEX);
-  }, []);
 
   // Get the active polygon being created
   const activePolygon = useMemo(() => {
@@ -461,83 +448,80 @@ export function Canvas() {
       {/* Zoom controls */}
       <div className="mb-2 flex items-center gap-1 bg-slate-800/90 px-2 py-1 rounded-lg border border-slate-700">
         <button
-          onClick={handleZoomOut}
+          onClick={() => canZoomOut && setZoomIndex(i => i - 1)}
           disabled={!canZoomOut}
           className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Zoom out"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
           </svg>
         </button>
         <button
-          onClick={handleResetZoom}
-          className="px-2 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors min-w-[45px]"
+          onClick={() => setZoomIndex(DEFAULT_ZOOM_INDEX)}
+          className="px-2 py-0.5 text-[11px] font-bold text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors min-w-[50px]"
           title="Reset zoom"
         >
           {Math.round(zoom * 100)}%
         </button>
         <button
-          onClick={handleZoomIn}
+          onClick={() => canZoomIn && setZoomIndex(i => i + 1)}
           disabled={!canZoomIn}
           className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Zoom in"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
           </svg>
         </button>
       </div>
 
-      {/* Scrollable container for zoomed canvas */}
+      {/* Scrollable container when zoomed */}
       <div 
-        className="canvas-scroll-container overflow-auto"
-        style={{ 
-          maxHeight: '70vh',
-          maxWidth: '90vw',
+        className="canvas-zoom-container"
+        style={{
+          maxHeight: zoom > 1 ? '80vh' : undefined,
+          overflow: zoom > 1 ? 'auto' : 'visible',
+          border: zoom > 1 ? '2px solid rgba(100, 116, 139, 0.3)' : 'none',
+          borderRadius: zoom > 1 ? '8px' : undefined,
         }}
       >
         <div
-          style={{
-            transform: `scale(${zoom})`,
-            transformOrigin: 'top left',
-            width: `${100 / zoom}%`,
-            height: 'fit-content',
+          className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
+          id="canvas-wrapper"
+          style={{ 
+            aspectRatio,
+            maxWidth: `${380 * zoom}px`,
+            width: `${380 * zoom}px`,
           }}
         >
-          <div
-            className={`canvas-wrapper ring-8 ring-slate-800/50 ${isDrawingMode ? "cursor-crosshair" : ""}`}
-            id="canvas-wrapper"
-            style={{ aspectRatio }}
-          >
-            {backgroundImage && (
-              <div id="size-badge">
-                {backgroundImage.width} x {backgroundImage.height}
-              </div>
-            )}
-            <div
-              id="main-canvas"
-              ref={canvasRef}
-              style={{
-                backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
-              }}
-              onClick={handleCanvasClick}
-              onDoubleClick={handleCanvasDoubleClick}
-              onMouseDown={handleDrawStart}
-              onMouseMove={handleDrawMove}
-              onMouseUp={handleDrawEnd}
-              onMouseLeave={handleDrawEnd}
-              onTouchStart={handleDrawStart}
-              onTouchMove={handleDrawMove}
-              onTouchEnd={handleDrawEnd}
-            >
-              {elements
-                .sort((a, b) => a.zIndex - b.zIndex)
-                .map(renderElement)}
-              
-              {renderDrawingPreview()}
-              {renderPolygonPreview()}
+          {backgroundImage && (
+            <div id="size-badge">
+              {backgroundImage.width} x {backgroundImage.height}
             </div>
+          )}
+          <div
+            id="main-canvas"
+            ref={canvasRef}
+            style={{
+              backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
+            }}
+            onClick={handleCanvasClick}
+            onDoubleClick={handleCanvasDoubleClick}
+            onMouseDown={handleDrawStart}
+            onMouseMove={handleDrawMove}
+            onMouseUp={handleDrawEnd}
+            onMouseLeave={handleDrawEnd}
+            onTouchStart={handleDrawStart}
+            onTouchMove={handleDrawMove}
+            onTouchEnd={handleDrawEnd}
+          >
+            {elements
+              .sort((a, b) => a.zIndex - b.zIndex)
+              .map(renderElement)}
+            
+            {renderDrawingPreview()}
+            {renderPolygonPreview()}
           </div>
         </div>
       </div>
