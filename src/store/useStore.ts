@@ -137,6 +137,7 @@ export const useStore = create<AppState>((set, get) => ({
     videoFormat: "mp4",
     durationMode: "animation",
     videoDuration: 3,
+    backgroundColor: "#1e293b",
   },
   isRecording: false,
   editorMode: "select",

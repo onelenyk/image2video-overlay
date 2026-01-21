@@ -16,7 +16,7 @@ export function RecordingControl() {
   const { isRecording, isConverting, conversionProgress, startRecording, stopRecording, recordAutoLoop, downloadPng } =
     useRecording();
 
-  const { bitrate, fps, videoFormat, durationMode, videoDuration } = recordingSettings;
+  const { bitrate, fps, videoFormat, durationMode, videoDuration, backgroundColor } = recordingSettings;
 
   // Get active element's animation duration (works for all types now)
   const activeElement = elements.find((el) => el.id === activeElementId);
@@ -190,6 +190,35 @@ export function RecordingControl() {
               Converting to MP4 may take a moment
             </p>
           )}
+        </div>
+
+        {/* Background Color */}
+        <div className="control-group">
+          <div className="label-row">
+            <span className="text-[9px] font-bold text-slate-400">Background Color</span>
+            <span className="val-badge text-[9px]">{backgroundColor}</span>
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              type="color"
+              value={backgroundColor}
+              onChange={(e) => setRecordingSettings({ backgroundColor: e.target.value })}
+              className="w-8 h-8 rounded cursor-pointer border border-slate-600"
+            />
+            <div className="flex gap-1 flex-1">
+              {["#1e293b", "#000000", "#ffffff", "#0f172a", "#18181b"].map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setRecordingSettings({ backgroundColor: color })}
+                  className={`w-6 h-6 rounded border-2 transition-all ${
+                    backgroundColor === color ? "border-indigo-500 scale-110" : "border-slate-600"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Conversion Progress */}

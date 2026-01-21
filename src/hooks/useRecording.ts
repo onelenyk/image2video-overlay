@@ -153,7 +153,8 @@ export function useRecording() {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      ctx.fillStyle = "#1e293b";
+      const { backgroundColor } = useStore.getState().recordingSettings;
+      ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (backgroundImage) {

@@ -217,6 +217,7 @@ export interface RecordingSettings {
   videoFormat: VideoFormat;
   durationMode: DurationMode;
   videoDuration: number;
+  backgroundColor: string;
 }
 
 export const QUALITY_PRESETS: Record<Exclude<QualityPreset, "native">, [number, number]> = {
