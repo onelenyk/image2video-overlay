@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { AnimationType } from "../types";
 import { getAnimationState, isLineAnimation, type AnimationState } from "../utils/animation";
 
