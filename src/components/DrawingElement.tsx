@@ -1,6 +1,7 @@
 import { useRef, useCallback, useMemo } from "react";
 import type { DrawingComponent, Position } from "../types";
 import { useStore } from "../store/useStore";
+import { useAnimation, getAnimationStyles } from "../hooks/useAnimation";
 
 interface DrawingElementProps {
   element: DrawingComponent;
@@ -11,6 +12,14 @@ export function DrawingElement({ element, containerRef }: DrawingElementProps) {
   const { activeElementId, setActiveElement, updateElement, editorMode } = useStore();
   const elementRef = useRef<SVGSVGElement>(null);
   const isActive = activeElementId === element.id;
+
+  // Use JS-based animation instead of CSS
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
 
   const dragState = useRef({
     isDragging: false,
@@ -104,17 +113,19 @@ export function DrawingElement({ element, containerRef }: DrawingElementProps) {
     [element.id, element.path, element.position, setActiveElement, updateElement, containerRef, getCoords, editorMode]
   );
 
-  const animClass = element.animationPreview ? element.animationType : "";
+  // Get animation styles
+  const animStyles = getAnimationStyles(animState, element.rotation);
+  const currentOpacity = animState?.opacity ?? element.opacity;
 
   if (absolutePath.length === 0) return null;
 
   return (
     <svg
       ref={elementRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none ${animClass}`}
+      className="absolute inset-0 w-full h-full pointer-events-none"
       style={{
         zIndex: element.zIndex,
-        ["--anim-duration" as string]: `${element.animationDuration}s`,
+        ...animStyles,
       }}
     >
       {/* Draw line segments */}
@@ -127,7 +138,7 @@ export function DrawingElement({ element, containerRef }: DrawingElementProps) {
           y2={`${seg.y2}%`}
           stroke={element.color}
           strokeWidth={element.strokeWidth}
-          strokeOpacity={element.opacity}
+          strokeOpacity={currentOpacity}
           strokeLinecap="round"
           strokeLinejoin="round"
           className="pointer-events-auto cursor-move"

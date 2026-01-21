@@ -1,16 +1,13 @@
-import { useRef, useCallback, useMemo, useState, useEffect } from "react";
-import type { PolygonOverlay, Position, AnimationType } from "../types";
+import { useRef, useCallback, useMemo, useState } from "react";
+import type { PolygonOverlay, Position } from "../types";
 import { useStore } from "../store/useStore";
 import { hexToRgba } from "../utils/color";
+import { useAnimation, useTrainAnimation, getAnimationStyles } from "../hooks/useAnimation";
+import { isLineAnimation } from "../utils/animation";
 
 interface PolygonElementProps {
   element: PolygonOverlay;
   containerRef: React.RefObject<HTMLDivElement | null>;
-}
-
-// Check if animation type is a line-specific animation
-function isLineAnimation(animType: AnimationType): boolean {
-  return animType === "anim-train" || animType === "anim-train-loop" || animType === "anim-dash";
 }
 
 export function PolygonElement({ element, containerRef }: PolygonElementProps) {
@@ -18,13 +15,23 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
   const elementRef = useRef<SVGSVGElement>(null);
   const isActive = activeElementId === element.id;
   
-  // State for train animation progress (0 to 1)
-  const [trainProgress, setTrainProgress] = useState(0);
-  const animationFrameRef = useRef<number | null>(null);
-  const animationStartTimeRef = useRef<number>(0);
-  
   // State for showing edge midpoints when hovering
   const [hoveredEdge, setHoveredEdge] = useState<number | null>(null);
+
+  // Use shared animation hook for non-line animations
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
+  
+  // Use train animation hook for line-specific animations
+  const trainProgress = useTrainAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+  });
 
   const dragState = useRef({
     isDragging: false,
@@ -83,43 +90,6 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
     }
     return length;
   }, [element.points, element.closed]);
-
-  // Train animation effect
-  useEffect(() => {
-    const isTrainAnim = element.animationPreview && isLineAnimation(element.animationType);
-    
-    if (!isTrainAnim) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      setTrainProgress(0);
-      return;
-    }
-
-    const duration = element.animationDuration * 1000;
-    animationStartTimeRef.current = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - animationStartTimeRef.current;
-      let progress = (elapsed % duration) / duration;
-      
-      if (element.animationType === "anim-train-loop") {
-        progress = progress < 0.5 ? progress * 2 : 2 - progress * 2;
-      }
-      
-      setTrainProgress(progress);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [element.animationPreview, element.animationType, element.animationDuration]);
 
   // Get position along the path at a given progress (0-1)
   const getPositionAtProgress = useCallback((progress: number): Position | null => {
@@ -315,10 +285,15 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
     [element.id, element.points, setActiveElement, updateElement, containerRef, getCoords, editorMode]
   );
 
-  // For non-line animations, apply CSS class; for line animations, don't apply class
+  // Check if this is a line-specific animation
   const isLineAnim = isLineAnimation(element.animationType);
-  const animClass = element.animationPreview && !isLineAnim ? element.animationType : "";
-  const fillColor = element.fillEnabled && element.closed ? hexToRgba(element.color, element.opacity) : "none";
+  
+  // Get animation styles for non-line animations
+  const animStyles = !isLineAnim ? getAnimationStyles(animState, 0) : {};
+  
+  // Calculate opacity
+  const currentOpacity = animState?.opacity ?? element.opacity;
+  const fillColor = element.fillEnabled && element.closed ? hexToRgba(element.color, currentOpacity) : "none";
 
   // Don't render if no points
   if (element.points.length === 0) {
@@ -328,10 +303,10 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
   return (
     <svg
       ref={elementRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none ${animClass}`}
+      className="absolute inset-0 w-full h-full pointer-events-none"
       style={{
         zIndex: element.zIndex,
-        ["--anim-duration" as string]: `${element.animationDuration}s`,
+        ...animStyles,
       }}
     >
       {/* Fill polygon using viewBox for accurate fill */}
@@ -357,7 +332,7 @@ export function PolygonElement({ element, containerRef }: PolygonElementProps) {
           y2={`${line.y2}%`}
           stroke={element.color}
           strokeWidth={element.strokeWidth}
-          strokeOpacity={isLineAnim && element.animationPreview ? 0.3 : 1}
+          strokeOpacity={isLineAnim && element.animationPreview ? 0.3 : currentOpacity}
           strokeLinecap="round"
           className="pointer-events-auto cursor-move"
           onMouseDown={(e) => handleMouseDown(e, "polygon")}

@@ -1,9 +1,11 @@
-import { useRef, useCallback, useMemo, useState, useEffect } from "react";
-import type { LineOverlay, Position, LineEndpoint, AnimationType } from "../types";
+import { useRef, useCallback, useMemo, useState } from "react";
+import type { LineOverlay, Position, LineEndpoint } from "../types";
 import { isConnectionRef } from "../types";
 import { useStore } from "../store/useStore";
 import { resolveEndpoint, findNearestSnapPoint } from "../utils/connections";
 import type { ConnectablePoint } from "../utils/connections";
+import { useAnimation, useTrainAnimation, getAnimationStyles } from "../hooks/useAnimation";
+import { isLineAnimation } from "../utils/animation";
 
 interface LineElementProps {
   element: LineOverlay;
@@ -11,11 +13,6 @@ interface LineElementProps {
 }
 
 const SNAP_DISTANCE = 4; // percentage units
-
-// Check if animation type is a line-specific animation
-function isLineAnimation(animType: AnimationType): boolean {
-  return animType === "anim-train" || animType === "anim-train-loop" || animType === "anim-dash";
-}
 
 export function LineElement({ element, containerRef }: LineElementProps) {
   const { activeElementId, setActiveElement, updateElement, connectLineEndpoint, disconnectLineEndpoint, elements, editorMode } = useStore();
@@ -25,10 +22,20 @@ export function LineElement({ element, containerRef }: LineElementProps) {
   // State for snap preview
   const [snapPreview, setSnapPreview] = useState<{ endpoint: "start" | "end"; target: ConnectablePoint } | null>(null);
   
-  // State for train animation progress (0 to 1)
-  const [trainProgress, setTrainProgress] = useState(0);
-  const animationFrameRef = useRef<number | null>(null);
-  const animationStartTimeRef = useRef<number>(0);
+  // Use shared animation hook for non-line animations
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
+  
+  // Use train animation hook for line-specific animations
+  const trainProgress = useTrainAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+  });
 
   const dragState = useRef({
     isDragging: false,
@@ -54,44 +61,6 @@ export function LineElement({ element, containerRef }: LineElementProps) {
     resolveEndpoint(element.endPoint, elements) ?? { x: 50, y: 50 },
     [element.endPoint, elements]
   );
-
-  // Train animation effect
-  useEffect(() => {
-    const isTrainAnim = element.animationPreview && isLineAnimation(element.animationType);
-    
-    if (!isTrainAnim) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      setTrainProgress(0);
-      return;
-    }
-
-    const duration = element.animationDuration * 1000; // Convert to ms
-    animationStartTimeRef.current = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - animationStartTimeRef.current;
-      let progress = (elapsed % duration) / duration;
-      
-      // For train-loop, make it go back and forth
-      if (element.animationType === "anim-train-loop") {
-        progress = progress < 0.5 ? progress * 2 : 2 - progress * 2;
-      }
-      
-      setTrainProgress(progress);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [element.animationPreview, element.animationType, element.animationDuration]);
 
   const getCoords = useCallback((e: MouseEvent | TouchEvent) => {
     if ("touches" in e && e.touches.length > 0) {
@@ -226,9 +195,11 @@ export function LineElement({ element, containerRef }: LineElementProps) {
     [element, setActiveElement, updateElement, connectLineEndpoint, containerRef, getCoords, startPos, endPos, editorMode, isConnected, elements]
   );
 
-  // For non-line animations, apply CSS class; for line animations, don't apply class
+  // Check if this is a line-specific animation
   const isLineAnim = isLineAnimation(element.animationType);
-  const animClass = element.animationPreview && !isLineAnim ? element.animationType : "";
+  
+  // Get animation styles for non-line animations
+  const animStyles = !isLineAnim ? getAnimationStyles(animState, 0) : {};
 
   // Get train settings (with defaults)
   const trainSettings = element.trainSettings || {
@@ -264,13 +235,18 @@ export function LineElement({ element, containerRef }: LineElementProps) {
   // Determine train color
   const trainColor = trainSettings.trainColor === "inherit" ? element.color : trainSettings.trainColor;
 
+  // Calculate opacity for line
+  const lineOpacity = isLineAnim && element.animationPreview 
+    ? element.opacity * 0.3 
+    : (animState?.opacity ?? element.opacity);
+
   return (
     <svg
       ref={elementRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none ${animClass}`}
+      className="absolute inset-0 w-full h-full pointer-events-none"
       style={{
         zIndex: element.zIndex,
-        ["--anim-duration" as string]: `${element.animationDuration}s`,
+        ...animStyles,
       }}
     >
       {/* Main line - clickable */}
@@ -281,7 +257,7 @@ export function LineElement({ element, containerRef }: LineElementProps) {
         y2={`${endPos.y}%`}
         stroke={element.color}
         strokeWidth={element.strokeWidth}
-        strokeOpacity={isLineAnim && element.animationPreview ? element.opacity * 0.3 : element.opacity}
+        strokeOpacity={lineOpacity}
         strokeLinecap="round"
         className="pointer-events-auto cursor-move"
         onMouseDown={(e) => handleMouseDown(e, "line")}

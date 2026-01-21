@@ -9,118 +9,14 @@ import type {
   ComponentElement,
   ImageComponent,
   DrawingComponent,
-  AnimationType,
   Position,
   LineEndpoint
 } from "../types";
 import { hexToRgba } from "../utils/color";
 import { replaceCurrentColorInSvgXml } from "../utils/svg";
 import { resolveEndpoint } from "../utils/connections";
+import { getAnimationState, isLineAnimation, type AnimationState } from "../utils/animation";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-
-// Animation functions that return transform values based on progress (0-1)
-interface AnimationState {
-  scale: number;
-  opacity: number;
-  translateX: number;
-  translateY: number;
-  rotation: number;
-}
-
-function getAnimationState(
-  animationType: AnimationType,
-  progress: number,
-  baseOpacity: number
-): AnimationState {
-  const state: AnimationState = {
-    scale: 1,
-    opacity: baseOpacity,
-    translateX: 0,
-    translateY: 0,
-    rotation: 0,
-  };
-
-  // Easing function for smooth animations
-  const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-  switch (animationType) {
-    case "anim-pulse":
-      if (progress < 0.5) {
-        const t = progress * 2;
-        state.scale = 1 + 0.1 * easeInOut(t);
-        state.opacity = baseOpacity + (0.8 - baseOpacity) * easeInOut(t);
-      } else {
-        const t = (progress - 0.5) * 2;
-        state.scale = 1.1 - 0.1 * easeInOut(t);
-        state.opacity = 0.8 - (0.8 - baseOpacity) * easeInOut(t);
-      }
-      break;
-
-    case "anim-bounce":
-      if (progress < 0.5) {
-        state.translateY = -15 * easeInOut(progress * 2);
-      } else {
-        state.translateY = -15 * (1 - easeInOut((progress - 0.5) * 2));
-      }
-      break;
-
-    case "anim-fade":
-      state.opacity = 0.1 + 0.8 * progress;
-      break;
-
-    case "anim-shake":
-      const shakeProgress = (progress * 3) % 1;
-      if (shakeProgress < 0.25) {
-        state.translateX = -5 * (shakeProgress / 0.25);
-      } else if (shakeProgress < 0.5) {
-        state.translateX = -5 + 10 * ((shakeProgress - 0.25) / 0.25);
-      } else if (shakeProgress < 0.75) {
-        state.translateX = 5 - 10 * ((shakeProgress - 0.5) / 0.25);
-      } else {
-        state.translateX = -5 + 5 * ((shakeProgress - 0.75) / 0.25);
-      }
-      break;
-
-    case "anim-flash":
-      const flashProgress = (progress * 2) % 1;
-      if (flashProgress < 0.5) {
-        state.opacity = 0.8 - 0.7 * (flashProgress * 2);
-      } else {
-        state.opacity = 0.1 + 0.7 * ((flashProgress - 0.5) * 2);
-      }
-      break;
-
-    case "anim-spin":
-      state.rotation = 360 * progress;
-      break;
-
-    case "anim-zoom":
-      if (progress < 0.5) {
-        state.scale = 0.9 + 0.3 * easeInOut(progress * 2);
-      } else {
-        state.scale = 1.2 - 0.3 * easeInOut((progress - 0.5) * 2);
-      }
-      break;
-
-    case "anim-float":
-      if (progress < 0.33) {
-        const t = progress / 0.33;
-        state.translateX = 5 * easeInOut(t);
-        state.translateY = -10 * easeInOut(t);
-      } else if (progress < 0.66) {
-        const t = (progress - 0.33) / 0.33;
-        state.translateX = 5 - 10 * easeInOut(t);
-        state.translateY = -10 + 15 * easeInOut(t);
-      } else {
-        const t = (progress - 0.66) / 0.34;
-        state.translateX = -5 + 5 * easeInOut(t);
-        state.translateY = 5 - 5 * easeInOut(t);
-      }
-      break;
-  }
-
-  return state;
-}
 
 // Catmull-Rom spline for smooth curves (same as DrawingElement)
 function drawCatmullRomSpline(
@@ -393,15 +289,44 @@ export function useRecording() {
               let opacity = line.opacity;
 
               // Check if this is a line-specific animation
-              const isTrainAnim = (line as any).animationType === "anim-train" || 
-                                  (line as any).animationType === "anim-train-loop" ||
-                                  (line as any).animationType === "anim-dash";
+              const isTrainAnim = isLineAnimation((line as any).animationType);
 
               if (animState && !isTrainAnim) {
+                // Calculate line center for scale/rotation transforms
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+                
+                // Apply scale around center
+                if (animState.scale !== 1) {
+                  x1 = centerX + (x1 - centerX) * animState.scale;
+                  y1 = centerY + (y1 - centerY) * animState.scale;
+                  x2 = centerX + (x2 - centerX) * animState.scale;
+                  y2 = centerY + (y2 - centerY) * animState.scale;
+                }
+                
+                // Apply rotation around center
+                if (animState.rotation !== 0) {
+                  const radians = (animState.rotation * Math.PI) / 180;
+                  const cos = Math.cos(radians);
+                  const sin = Math.sin(radians);
+                  
+                  const dx1 = x1 - centerX;
+                  const dy1 = y1 - centerY;
+                  x1 = centerX + dx1 * cos - dy1 * sin;
+                  y1 = centerY + dx1 * sin + dy1 * cos;
+                  
+                  const dx2 = x2 - centerX;
+                  const dy2 = y2 - centerY;
+                  x2 = centerX + dx2 * cos - dy2 * sin;
+                  y2 = centerY + dx2 * sin + dy2 * cos;
+                }
+                
+                // Apply translation
                 x1 += animState.translateX * sx;
                 y1 += animState.translateY * sy;
                 x2 += animState.translateX * sx;
                 y2 += animState.translateY * sy;
+                
                 opacity = animState.opacity;
               }
 
@@ -510,24 +435,63 @@ export function useRecording() {
               if (polygon.points.length === 0) return;
 
               // Check if this is a line-specific animation
-              const isPolyTrainAnim = (polygon as any).animationType === "anim-train" || 
-                                      (polygon as any).animationType === "anim-train-loop" ||
-                                      (polygon as any).animationType === "anim-dash";
+              const isPolyTrainAnim = isLineAnimation((polygon as any).animationType);
 
               ctx.save();
               
+              // Get animation values (only for non-train animations)
+              const scale = (!isPolyTrainAnim && animState?.scale) ? animState.scale : 1;
               const translateX = (!isPolyTrainAnim && animState?.translateX) ? animState.translateX : 0;
               const translateY = (!isPolyTrainAnim && animState?.translateY) ? animState.translateY : 0;
+              const rotation = (!isPolyTrainAnim && animState?.rotation) ? animState.rotation : 0;
+              const opacity = (!isPolyTrainAnim && animState) ? animState.opacity : polygon.opacity;
 
-              // Calculate points in canvas coordinates
-              const canvasPoints = polygon.points.map(p => ({
-                x: (p.x / 100) * containerRect.width * sx + translateX * sx,
-                y: (p.y / 100) * containerRect.height * sy + translateY * sy,
+              // Calculate base points in canvas coordinates
+              let canvasPoints = polygon.points.map(p => ({
+                x: (p.x / 100) * containerRect.width * sx,
+                y: (p.y / 100) * containerRect.height * sy,
               }));
+
+              // Apply scale and rotation around center if needed
+              if (scale !== 1 || rotation !== 0) {
+                // Calculate center of polygon
+                const centerX = canvasPoints.reduce((sum, p) => sum + p.x, 0) / canvasPoints.length;
+                const centerY = canvasPoints.reduce((sum, p) => sum + p.y, 0) / canvasPoints.length;
+                
+                const radians = (rotation * Math.PI) / 180;
+                const cos = Math.cos(radians);
+                const sin = Math.sin(radians);
+                
+                canvasPoints = canvasPoints.map(p => {
+                  // Translate to origin
+                  let x = p.x - centerX;
+                  let y = p.y - centerY;
+                  
+                  // Scale
+                  x *= scale;
+                  y *= scale;
+                  
+                  // Rotate
+                  const rotatedX = x * cos - y * sin;
+                  const rotatedY = x * sin + y * cos;
+                  
+                  // Translate back and apply translation
+                  return {
+                    x: rotatedX + centerX + translateX * sx,
+                    y: rotatedY + centerY + translateY * sy,
+                  };
+                });
+              } else {
+                // Just apply translation
+                canvasPoints = canvasPoints.map(p => ({
+                  x: p.x + translateX * sx,
+                  y: p.y + translateY * sy,
+                }));
+              }
 
               // Draw fill if enabled (and not affected by train animation)
               if (polygon.fillEnabled && polygon.closed) {
-                ctx.globalAlpha = animState?.opacity ?? polygon.opacity;
+                ctx.globalAlpha = opacity;
                 ctx.beginPath();
                 canvasPoints.forEach((p, i) => {
                   if (i === 0) ctx.moveTo(p.x, p.y);
@@ -541,7 +505,7 @@ export function useRecording() {
               // Draw strokes (dimmed for train animation)
               ctx.globalAlpha = isPolyTrainAnim && (polygon as any).animationEnabled 
                 ? (polygon.opacity * 0.3) 
-                : (animState?.opacity ?? polygon.opacity);
+                : opacity;
               
               ctx.beginPath();
               canvasPoints.forEach((p, i) => {

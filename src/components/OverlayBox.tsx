@@ -1,7 +1,8 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import type { RectangleOverlay } from "../types";
 import { useStore } from "../store/useStore";
 import { hexToRgba } from "../utils/color";
+import { useAnimation, getAnimationStyles } from "../hooks/useAnimation";
 
 interface OverlayBoxProps {
   element: RectangleOverlay;
@@ -12,6 +13,14 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
   const { activeElementId, setActiveElement, updateElement, editorMode } = useStore();
   const elementRef = useRef<HTMLDivElement>(null);
   const isActive = activeElementId === element.id;
+
+  // Use JS-based animation instead of CSS
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
 
   // Drag state - use refs to avoid re-renders during drag
   const dragState = useRef({
@@ -107,23 +116,14 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
     document.addEventListener("touchend", handleEnd);
   }, [element.id, setActiveElement, updateElement, containerRef, getCoords, editorMode]);
 
-  // Update CSS variable for animation duration
-  useEffect(() => {
-    if (isActive) {
-      document.documentElement.style.setProperty(
-        "--anim-duration",
-        `${element.animationDuration}s`
-      );
-    }
-  }, [isActive, element.animationDuration]);
-
-  const bgColor = hexToRgba(element.color, element.opacity);
-  const animClass = element.animationPreview ? element.animationType : "";
+  // Get animation styles (transform and opacity)
+  const animStyles = getAnimationStyles(animState, element.rotation);
+  const bgColor = hexToRgba(element.color, animState?.opacity ?? element.opacity);
 
   return (
     <div
       ref={elementRef}
-      className={`overlay-box draggable ${isActive ? "active" : ""} ${animClass} ${
+      className={`overlay-box draggable ${isActive ? "active" : ""} ${
         element.isHidden ? "hidden-box" : ""
       }`}
       style={{
@@ -134,8 +134,8 @@ export function OverlayBox({ element, containerRef }: OverlayBoxProps) {
         backgroundColor: bgColor,
         borderColor: element.color,
         borderWidth: element.borderWidth,
-        transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
+        ...animStyles,
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleMouseDown}

@@ -1,6 +1,7 @@
 import { useRef, useCallback } from "react";
 import type { PointOverlay } from "../types";
 import { useStore } from "../store/useStore";
+import { useAnimation, getAnimationStyles } from "../hooks/useAnimation";
 
 interface PointElementProps {
   element: PointOverlay;
@@ -11,6 +12,14 @@ export function PointElement({ element, containerRef }: PointElementProps) {
   const { activeElementId, setActiveElement, updateElement, editorMode } = useStore();
   const elementRef = useRef<HTMLDivElement>(null);
   const isActive = activeElementId === element.id;
+
+  // Use JS-based animation instead of CSS
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
 
   const dragState = useRef({
     isDragging: false,
@@ -86,18 +95,19 @@ export function PointElement({ element, containerRef }: PointElementProps) {
     [element.id, setActiveElement, updateElement, containerRef, getCoords, editorMode]
   );
 
-  const animClass = element.animationPreview ? element.animationType : "";
+  // Get animation styles
+  const animStyles = getAnimationStyles(animState, 0);
+  const radius = animState ? element.radius * animState.scale : element.radius;
 
   return (
     <div
       ref={elementRef}
-      className={`absolute cursor-move touch-none ${isActive ? "ring-2 ring-white ring-offset-1 ring-offset-transparent" : ""} ${animClass}`}
+      className={`absolute cursor-move touch-none ${isActive ? "ring-2 ring-white ring-offset-1 ring-offset-transparent" : ""}`}
       style={{
         left: `${element.position.x}%`,
         top: `${element.position.y}%`,
-        transform: "translate(-50%, -50%)",
+        transform: `translate(-50%, -50%) ${animStyles.transform ? animStyles.transform.replace(/scale\([^)]+\)/, '') : ''}`.trim(),
         zIndex: element.zIndex,
-        ["--anim-duration" as string]: `${element.animationDuration}s`,
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleMouseDown}
@@ -106,10 +116,10 @@ export function PointElement({ element, containerRef }: PointElementProps) {
       <div
         className="rounded-full border-2 border-white shadow-lg"
         style={{
-          width: element.radius * 2,
-          height: element.radius * 2,
+          width: radius * 2,
+          height: radius * 2,
           backgroundColor: element.color,
-          opacity: element.opacity,
+          opacity: animState?.opacity ?? element.opacity,
         }}
       />
       

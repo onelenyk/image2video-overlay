@@ -1,9 +1,5 @@
 @import "tailwindcss";
 
-:root {
-  --anim-duration: 1.5s;
-}
-
 body {
   background-color: #0f172a;
   color: #f8fafc;
@@ -91,116 +87,11 @@ body {
   pointer-events: none;
 }
 
-.anim-pulse {
-  animation: pulse-kf var(--anim-duration) infinite ease-in-out;
-}
-.anim-bounce {
-  animation: bounce-kf var(--anim-duration) infinite;
-}
-.anim-fade {
-  animation: fade-kf var(--anim-duration) infinite alternate linear;
-}
-.anim-shake {
-  animation: shake-kf calc(var(--anim-duration) / 3) infinite;
-}
-.anim-flash {
-  animation: flash-kf calc(var(--anim-duration) / 2) infinite;
-}
-.anim-spin {
-  animation: spin-kf var(--anim-duration) infinite linear;
-}
-.anim-zoom {
-  animation: zoom-kf var(--anim-duration) infinite ease-in-out;
-}
-.anim-float {
-  animation: float-kf var(--anim-duration) infinite ease-in-out;
-}
-
-/* Line-specific animations - these are handled specially in LineElement */
-.anim-train,
-.anim-train-loop,
-.anim-dash {
-  /* These animations are rendered via SVG, not CSS transforms */
-}
-
-@keyframes pulse-kf {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.4;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
-@keyframes bounce-kf {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-15px);
-  }
-}
-@keyframes fade-kf {
-  0% {
-    opacity: 0.1;
-  }
-  100% {
-    opacity: 0.9;
-  }
-}
-@keyframes shake-kf {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
-  }
-}
-@keyframes flash-kf {
-  0%,
-  100% {
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 0.1;
-  }
-}
-@keyframes spin-kf {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes zoom-kf {
-  0%,
-  100% {
-    transform: scale(0.9);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-@keyframes float-kf {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  33% {
-    transform: translate(5px, -10px);
-  }
-  66% {
-    transform: translate(-5px, -5px);
-  }
-}
+/* 
+ * CSS animation classes removed - all animations are now handled via JavaScript
+ * in src/utils/animation.ts and src/hooks/useAnimation.ts
+ * This ensures consistency between preview and recorded video.
+ */
 
 .taking-screenshot .resize-handle,
 .is-recording .resize-handle {

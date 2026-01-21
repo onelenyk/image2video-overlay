@@ -3,6 +3,7 @@ import type { ImageComponent } from "../types";
 import { useStore } from "../store/useStore";
 import { hexToRgba } from "../utils/color";
 import { prepareSvgForDisplay } from "../utils/svg";
+import { useAnimation, getAnimationStyles } from "../hooks/useAnimation";
 
 interface ImageElementProps {
   element: ImageComponent;
@@ -13,6 +14,14 @@ export function ImageElement({ element, containerRef }: ImageElementProps) {
   const { activeElementId, setActiveElement, updateElement, editorMode } = useStore();
   const elementRef = useRef<HTMLDivElement>(null);
   const isActive = activeElementId === element.id;
+
+  // Use JS-based animation instead of CSS
+  const { animState } = useAnimation({
+    animationType: element.animationType,
+    animationDuration: element.animationDuration,
+    animationPreview: element.animationPreview,
+    baseOpacity: element.opacity,
+  });
 
   const dragState = useRef({
     isDragging: false,
@@ -110,8 +119,10 @@ export function ImageElement({ element, containerRef }: ImageElementProps) {
     [element.id, setActiveElement, updateElement, containerRef, getCoords, editorMode]
   );
 
-  const color = hexToRgba(element.color, element.opacity);
-  const animClass = element.animationPreview ? element.animationType : "";
+  // Get animation styles
+  const animStyles = getAnimationStyles(animState, element.rotation);
+  const currentOpacity = animState?.opacity ?? element.opacity;
+  const color = hexToRgba(element.color, currentOpacity);
 
   // Prepare content based on format
   const content = useMemo(() => {
@@ -124,16 +135,15 @@ export function ImageElement({ element, containerRef }: ImageElementProps) {
   return (
     <div
       ref={elementRef}
-      className={`draggable arrow-instance ${isActive ? "active" : ""} ${animClass}`}
+      className={`draggable arrow-instance ${isActive ? "active" : ""}`}
       style={{
         left: `${element.position.x}%`,
         top: `${element.position.y}%`,
         width: element.size.width,
         height: element.size.height,
         color: color,
-        transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
-        ["--anim-duration" as string]: `${element.animationDuration}s`,
+        ...animStyles,
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleMouseDown}
@@ -149,7 +159,7 @@ export function ImageElement({ element, containerRef }: ImageElementProps) {
           src={element.content}
           alt=""
           className="w-full h-full object-contain pointer-events-none"
-          style={{ opacity: element.opacity }}
+          style={{ opacity: currentOpacity }}
           draggable={false}
         />
       )}
